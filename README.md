@@ -1,4 +1,4 @@
-# MenuDigital (TP Cloud Computing, VibeCode~~~~)
+# MenuQR (TP Cloud Computing)
 
 A multi-tenant digital menu SaaS platform for restaurants. Customers scan a QR code to view menus on their phones, while restaurant owners get rich, real-time analytics.
 
@@ -9,44 +9,6 @@ A multi-tenant digital menu SaaS platform for restaurants. Customers scan a QR c
 - **Rich analytics**: View counts, item popularity, hourly heatmaps, session depth
 - **Real-time dashboard**: Live activity tracking with 30-second refresh
 - **Menu management**: Full CRUD for sections and items with image upload
-
-## Tech Stack
-
-### Backend
-- Quarkus 3 (Java 21)
-- RESTEasy Reactive
-- Hibernate ORM with Panache
-- PostgreSQL 15
-- DynamoDB (analytics events)
-- S3 (image storage)
-- SmallRye JWT
-
-### Frontend
-- React 18 + TypeScript
-- Vite
-- TailwindCSS + shadcn/ui
-- React Query v5
-- Recharts (analytics)
-
-## Project Structure
-
-```
-menudigital/
-├── backend/                    # Quarkus backend
-│   ├── src/main/java/com/menudigital/
-│   │   ├── domain/            # Pure Java domain models
-│   │   ├── application/       # Use cases and DTOs
-│   │   ├── infrastructure/    # DB, DynamoDB, S3 implementations
-│   │   └── interfaces/rest/   # REST controllers
-│   └── src/main/resources/
-│       └── db/migration/      # Flyway migrations
-├── frontend/
-│   ├── admin/                 # Admin panel SPA
-│   └── menu/                  # Public menu viewer SPA
-├── infrastructure/            # AWS docs (ASG, VPC endpoints, S3 modelos, ETL EC2)
-├── docker-compose.yml         # Local development
-└── docker-compose.prod.yml    # Production deployment
-```
 
 ## Quick Start
 
@@ -76,8 +38,10 @@ openssl rsa -pubout -in privateKey.pem -out publicKey.pem
 
 ### 3. Start with Docker Compose
 
+Desde la raíz del repositorio:
+
 ```bash
-docker-compose up
+docker compose -f infrastructure/docker/docker-compose.yml up
 ```
 
 This starts:
@@ -139,7 +103,7 @@ See `infrastructure/aws-deploy-novatos.md` for a beginner step-by-step AWS deplo
 ```bash
 cd backend
 ./mvnw package
-docker build -f src/main/docker/Dockerfile.jvm -t menudigital-backend .
+docker build -f src/main/docker/Dockerfile.jvm -t menuqr-backend .
 ```
 
 ### Build frontends
@@ -156,12 +120,12 @@ npm run build
 ### Backend
 | Variable | Description | Default |
 |----------|-------------|---------|
-| DB_URL | PostgreSQL connection URL | jdbc:postgresql://localhost:5432/menudigital |
-| DB_USER | Database username | menudigital |
-| DB_PASS | Database password | menudigital |
+| DB_URL | PostgreSQL connection URL | jdbc:postgresql://localhost:5432/menuqr |
+| DB_USER | Database username | menuqr |
+| DB_PASS | Database password | menuqr |
 | AWS_REGION | AWS region | us-east-1 |
-| S3_BUCKET | S3 bucket for images | menudigital-images |
-| DYNAMO_TABLE | DynamoDB table name | menudigital-events |
+| S3_BUCKET | S3 bucket for images | menuqr-images |
+| DYNAMO_TABLE | DynamoDB table name | menuqr-events |
 
 ### Frontend
 | Variable | Description | Default |

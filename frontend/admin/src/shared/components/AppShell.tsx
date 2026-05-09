@@ -27,7 +27,7 @@ export function AppShell() {
         <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
           <div className="flex h-full flex-col">
             <div className="border-b px-6 py-4">
-              <h1 className="text-xl font-bold text-primary">MenuDigital</h1>
+              <h1 className="text-xl font-bold text-primary">MenuQR</h1>
               <p className="text-sm text-muted-foreground truncate">{restaurantName}</p>
             </div>
             

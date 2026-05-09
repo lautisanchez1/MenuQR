@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: menuqr-backend:latest
+    # Evita pull a Docker Hub: la imagen es local o se construye con --build
+    pull_policy: never
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      AWS_REGION: ${AWS_REGION}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL}
+      DYNAMO_TABLE: ${DYNAMO_TABLE}
+      DYNAMO_ENDPOINT: ${DYNAMO_ENDPOINT:-}
+      QUARKUS_PROFILE: ${QUARKUS_PROFILE:-prod}
+      RECOMMENDATIONS_MODEL_S3_BUCKET: ${RECOMMENDATIONS_MODEL_S3_BUCKET:-}
+      RECOMMENDATIONS_MODEL_S3_KEY: ${RECOMMENDATIONS_MODEL_S3_KEY:-}
+      # Sin claves estáticas: S3 y Dynamo usan el rol IAM de la instancia. Si inyectás vacío, Quarkus falla al arrancar.
+    volumes:
+      - ../../privateKey.pem:/work/privateKey.pem:ro
+      - ../../publicKey.pem:/work/publicKey.pem:ro
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    restart: unless-stopped

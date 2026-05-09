@@ -268,7 +268,7 @@ export function PublicMenuPage() {
         )}
 
         <footer className="mt-12 pt-6 border-t text-center text-sm text-muted-foreground">
-          <p>Powered by MenuDigital</p>
+          <p>Powered by MenuQR</p>
         </footer>
       </div>
     </div>

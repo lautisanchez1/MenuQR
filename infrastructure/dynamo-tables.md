@@ -1,6 +1,6 @@
 # DynamoDB Table Design
 
-## Table: menudigital-events
+## Table: menuqr-events
 Billing: PAY_PER_REQUEST (on-demand)
 
 ### Keys

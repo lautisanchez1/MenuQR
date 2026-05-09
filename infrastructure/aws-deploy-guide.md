@@ -1,4 +1,4 @@
-# Guía de despliegue en AWS (MenuDigital / MenuQR)
+# Guía de despliegue en AWS (MenuQR)
 
 Si buscas una guía **paso a paso para novatos** (consola, orden de tareas, checklist), usa **[aws-deploy-novatos.md](./aws-deploy-novatos.md)**.
 
@@ -46,9 +46,9 @@ Las instancias **API** leen el artefacto de recomendaciones desde **S3 modelos**
 | **Datos transaccionales** | RDS Multi-AZ; security group solo desde SG de las EC2 de API. |
 | **Analítica** | DynamoDB; las API escriben eventos; el worker ETL puede leer eventos para entrenar y subir modelos a S3. |
 | **Objetos** | **Bucket S3** para imágenes del menú (`S3_BUCKET`); **otro bucket** (recomendado) para **artefactos ML** (`RECOMMENDATIONS_MODEL_S3_*`); buckets para builds de SPA. |
-| **Batch / ML** | **EC2 dedicada** (no en el ASG) para cron de [entrenamiento](./ml-segmentation/README.md) y subida del artefacto al bucket de modelos. |
+| **Batch / ML** | **EC2 dedicada** (no en el ASG) para cron de [entrenamiento](../machine-learning/README.md) y subida del artefacto al bucket de modelos. |
 
-**Qué corre en cada instancia del ASG (ver `docker-compose.prod.yml`):**
+**Qué corre en cada instancia del ASG (ver `infrastructure/docker/docker-compose.prod.yml`):**
 
 - **nginx** (80 hacia el ALB) y **backend** Quarkus (8080 interno; recomendaciones + carga opcional de modelo desde S3).
 
@@ -103,28 +103,28 @@ No exponer el puerto 8080 de Quarkus a Internet; solo el ALB → nginx:80.
 - Motor: **PostgreSQL 15**, misma familia que en local/Docker.
 - **Multi-AZ** para failover automático (típico ~1–2 minutos).
 - Subredes privadas, asociado a `sg-rds`.
-- Crear base `menudigital` y usuario con permisos acotados.
+- Crear base `menuqr` y usuario con permisos acotados.
 - **Flyway** ejecuta migraciones al arrancar Quarkus (`migrate-at-start=true`): no hace falta script manual si el `DB_URL` apunta al RDS y la base está vacía o al día.
 
 Cadena JDBC ejemplo:
 
 ```text
-jdbc:postgresql://<rds-endpoint>:5432/menudigital
+jdbc:postgresql://<rds-endpoint>:5432/menuqr
 ```
 
 ## 6. DynamoDB
 
 Crear las tablas según [dynamo-tables.md](./dynamo-tables.md):
 
-- `menudigital-events` (PK/SK + LSI `LSI-EventType`; sin GSI).
+- `menuqr-events` (PK/SK + LSI `LSI-EventType`; sin GSI).
 
-El **LSI** solo se define **al crear** la tabla. Si teníais `GSI-EventType` o `GSI-Item`, hay que **recrear** `menudigital-events` (o nueva tabla + migración) para alinear el esquema.
+El **LSI** solo se define **al crear** la tabla. Si teníais `GSI-EventType` o `GSI-Item`, hay que **recrear** `menuqr-events` (o nueva tabla + migración) para alinear el esquema.
 
 Modo de facturación: **PAY_PER_REQUEST** (on-demand) suele bastar al inicio.
 
 **IAM en EC2:** la política debe permitir al menos `dynamodb:PutItem`, `dynamodb:Query`, `dynamodb:GetItem` sobre:
 
-- `arn:aws:dynamodb:<region>:<account>:table/menudigital-events` (incluye queries al LSI; no hay GSI en esta tabla)
+- `arn:aws:dynamodb:<region>:<account>:table/menuqr-events` (incluye queries al LSI; no hay GSI en esta tabla)
 
 En **producción**, no hace falta `DYNAMO_ENDPOINT` ni claves estáticas: el SDK usa **IAM instance profile** si `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` no están definidos para S3/Dynamo (el código ya usa `DefaultCredentialsProvider` cuando faltan claves).
 
@@ -134,21 +134,21 @@ En **producción**, no hace falta `DYNAMO_ENDPOINT` ni claves estáticas: el SDK
 
 ### Bucket de imágenes y assets de aplicación
 
-- Nombre único global, ej. `menudigital-images-<account-id>`.
+- Nombre único global, ej. `menuqr-images-<account-id>`.
 - Política de lectura pública **solo en objetos** si el front muestra URLs directas; valorar **CloudFront + OAI** para no abrir el bucket al mundo.
 - CORS: permitir `GET` (y `PUT` si subís desde el navegador) desde el origen de vuestros SPAs y/o API.
 
 ### Buckets de SPAs
 
-- `menudigital-admin`, `menudigital-menu` (nombres de ejemplo).
+- `menuqr-admin`, `menuqr-menu` (nombres de ejemplo).
 - Subir artefactos de build:
 
 ```bash
 cd frontend/admin && npm ci && npm run build
-aws s3 sync dist s3://menudigital-admin --delete
+aws s3 sync dist s3://menuqr-admin --delete
 
 cd ../menu && npm ci && npm run build
-aws s3 sync dist s3://menudigital-menu --delete
+aws s3 sync dist s3://menuqr-menu --delete
 ```
 
 Variables de build (ej. en CI):
@@ -159,13 +159,13 @@ Variables de build (ej. en CI):
 
 ### Bucket de modelos ML (recomendado en producción)
 
-- Bucket **dedicado**, ej. `menudigital-models-<account-id>`, para artefactos entrenados (ONNX, etc.).
+- Bucket **dedicado**, ej. `menuqr-models-<account-id>`, para artefactos entrenados (ONNX, etc.).
 - El **worker ETL/ML** sube objetos (`PutObject`); las instancias **API** solo necesitan **`GetObject`** en la clave configurada (`RECOMMENDATIONS_MODEL_S3_KEY`).
 - Así separás IAM (el batch puede escribir modelos; la API no debe poder sobrescribirlos salvo que lo queráis).
 
 ## 8. IAM — roles separados (API vs ETL/ML)
 
-### 8.1 Rol para instancias del ASG (`menudigital-api-ec2`)
+### 8.1 Rol para instancias del ASG (`menuqr-api-ec2`)
 
 Incluye imágenes, DynamoDB y **lectura** del modelo:
 
@@ -176,17 +176,17 @@ Incluye imágenes, DynamoDB y **lectura** del modelo:
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::menudigital-images-<account-id>/*"
+      "Resource": "arn:aws:s3:::menuqr-images-<account-id>/*"
     },
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": "arn:aws:s3:::menudigital-models-<account-id>/*"
+      "Resource": "arn:aws:s3:::menuqr-models-<account-id>/*"
     },
     {
       "Effect": "Allow",
       "Action": ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"],
-      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menuqr-events"
     }
   ]
 }
@@ -194,7 +194,7 @@ Incluye imágenes, DynamoDB y **lectura** del modelo:
 
 Añadí **`ecr:GetAuthorizationToken`** y **`ecr:BatchGetImage`** + permisos de capa si tiráis de ECR sin endpoint; o mantened NAT para `docker pull`.
 
-### 8.2 Rol para EC2 ETL + ML (`menudigital-etl-ec2`)
+### 8.2 Rol para EC2 ETL + ML (`menuqr-etl-ec2`)
 
 Lectura de eventos en DynamoDB y **escritura** de modelos en S3:
 
@@ -205,12 +205,12 @@ Lectura de eventos en DynamoDB y **escritura** de modelos en S3:
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject"],
-      "Resource": "arn:aws:s3:::menudigital-models-<account-id>/*"
+      "Resource": "arn:aws:s3:::menuqr-models-<account-id>/*"
     },
     {
       "Effect": "Allow",
       "Action": ["dynamodb:Query", "dynamodb:Scan", "dynamodb:GetItem", "dynamodb:PutItem"],
-      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menuqr-events"
     }
   ]
 }
@@ -229,7 +229,7 @@ En un entorno de build (CI o máquina local):
 ```bash
 cd backend
 mvn -DskipTests package
-docker build -f src/main/docker/Dockerfile.jvm -t menudigital-backend:latest .
+docker build -f src/main/docker/Dockerfile.jvm -t menuqr-backend:latest .
 ```
 
 Subir la imagen a **Amazon ECR** y en cada EC2 hacer `docker pull` de ese tag.
@@ -241,8 +241,8 @@ Si **no** usás ECR, podés poner en el **user data** de la plantilla un script 
 1. Instale **Docker** y **Compose v2** (Amazon Linux: `yum install -y docker git`; el plugin `docker-compose-plugin` si está en repos, o binario desde GitHub en AL2 — ver script en `launch-template/`).
 2. Clone el repo (**Git**; repo privado: token vía **SSM Parameter Store** o deploy key, no hardcodear en claro).
 3. Secretos: el user-data escribe `.env` desde la sección **CONFIG** del script (completá variables ahí). Genera `privateKey.pem` / `publicKey.pem` si no existen; en producción podés reemplazarlas por claves propias y reiniciar el contenedor del backend.
-4. Ejecute `docker build -f backend/src/main/docker/Dockerfile.jvm -t menudigital-backend:latest backend/` (el **Maven** corre **dentro** del `Dockerfile.jvm`, no hace falta instalar Maven en el host).
-5. Levante `docker compose -f docker-compose.prod.yml up -d`.
+4. Ejecute `docker build -f backend/src/main/docker/Dockerfile.jvm -t menuqr-backend:latest backend/` (el **Maven** corre **dentro** del `Dockerfile.jvm`, no hace falta instalar Maven en el host).
+5. Desde la **raíz del repo**, levante `docker compose -f infrastructure/docker/docker-compose.prod.yml up -d`.
 
 En el repo hay un ejemplo listo para adaptar: [`infrastructure/launch-template/user-data-al2023-build-no-ecr.sh`](./launch-template/user-data-al2023-build-no-ecr.sh).
 
@@ -250,17 +250,18 @@ En el repo hay un ejemplo listo para adaptar: [`infrastructure/launch-template/u
 
 **IAM sin ECR:** no hace falta `ecr:*` para este flujo; sí **S3** si copiás secretos, y permisos de **SSM** si leés parámetros.
 
-**Contenido mínimo en el servidor** (junto al compose):
+**Contenido mínimo en el servidor** (raíz del repo clonado, o misma estructura de carpetas):
 
-- `docker-compose.prod.yml` (o copia ajustada).
-- `privateKey.pem`, `publicKey.pem` (permisos restrictivos).
-- Archivo `.env` o parámetros inyectados (ver siguiente sección).
+- `infrastructure/docker/docker-compose.prod.yml` (o copia ajustada; las rutas de volúmenes asumen esta ubicación y secretos en la raíz del repo).
+- `privateKey.pem`, `publicKey.pem` (en la **raíz** del repo, permisos restrictivos).
+- Carpeta `ssl/` opcional en la raíz del repo (certificados locales para Nginx).
+- Archivo `.env` en la raíz del repo o parámetros inyectados (ver siguiente sección).
 
 **User-data (esquema) — Launch Template del ASG:**
 
 1. Instalar Docker y plugin Compose v2.
 2. Autenticar ECR (`aws ecr get-login-password` …) si usáis registry privado.
-3. `docker compose pull && docker compose up -d`.
+3. Desde la raíz del repo: `docker compose -f infrastructure/docker/docker-compose.prod.yml pull && docker compose -f infrastructure/docker/docker-compose.prod.yml up -d`.
 
 **Auto Scaling Group (recomendado en lugar de “2 EC2 fijas”):**
 
@@ -268,7 +269,7 @@ En el repo hay un ejemplo listo para adaptar: [`infrastructure/launch-template/u
 - **ASG:** min **1**, deseado **1**, max **2** (o según carga); políticas de escala opcionales (CPU, requests ALB).
 - Adjuntar el ASG al **target group** del ALB; health check **GET** `/q/health`.
 
-**EC2 ETL + ML (fuera del ASG):** misma VPC, subred privada, **rol ETL**, sin registro en el ALB. Desplegar ahí el repo o solo `infrastructure/ml-segmentation` + scripts de entrenamiento; **cron** diario/semanal.
+**EC2 ETL + ML (fuera del ASG):** misma VPC, subred privada, **rol ETL**, sin registro en el ALB. Desplegar ahí el repo o solo `machine-learning/` + scripts de entrenamiento; **cron** diario/semanal.
 
 ## 10. Application Load Balancer
 
@@ -281,7 +282,7 @@ En el repo hay un ejemplo listo para adaptar: [`infrastructure/launch-template/u
 
 ## 11. Variables de entorno en producción
 
-Definid al menos (nombres alineados con `application.properties` y `docker-compose.prod.yml`):
+Definid al menos (nombres alineados con `application.properties` y `infrastructure/docker/docker-compose.prod.yml`):
 
 | Variable | Descripción |
 |----------|-------------|
@@ -289,8 +290,8 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 | `DB_USER` / `DB_PASS` | Credenciales RDS |
 | `AWS_REGION` | Región (ej. `us-east-1`) |
 | `S3_BUCKET` | Bucket de **imágenes** del menú (distinto del de modelos en prod) |
-| `RECOMMENDATIONS_MODEL_S3_BUCKET` | Bucket de **modelos** (puede ser `menudigital-models-…`) |
-| `DYNAMO_TABLE` | Tabla de eventos (ej. `menudigital-events`) |
+| `RECOMMENDATIONS_MODEL_S3_BUCKET` | Bucket de **modelos** (puede ser `menuqr-models-…`) |
+| `DYNAMO_TABLE` | Tabla de eventos (ej. `menuqr-events`) |
 | *(no definir)* `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Preferir IAM role en EC2 |
 | *(no definir)* `DYNAMO_ENDPOINT`, `S3_ENDPOINT` | Vacío en AWS real (servicio gestionado) |
 | `S3_PUBLIC_URL` | URL pública base para enlazar imágenes (CloudFront o `https://bucket.s3...`) |
@@ -306,10 +307,10 @@ El endpoint `POST /api/menu/{slug}/recommendations` está implementado **dentro 
 
 ## 13. Entrenamiento del modelo en EC2 (opcional)
 
-El script **`train_upload_model.py`** en [ml-segmentation/](./ml-segmentation/) lee eventos en DynamoDB y sube un artefacto de recomendaciones (joblib) al **bucket de modelos** S3; el rol ETL necesita `s3:PutObject` ahí.
+El script **`train_upload_model.py`** en [machine-learning/](../machine-learning/) lee eventos en DynamoDB y sube un artefacto de recomendaciones (joblib) al **bucket de modelos** S3; el rol ETL necesita `s3:PutObject` ahí.
 
 - Ejecutarlo con **cron** en la instancia EC2 (recomendado: IAM role, sin claves en el script).
-- Instrucciones: [ml-segmentation/README.md](./ml-segmentation/README.md).
+- Instrucciones: [machine-learning/README.md](../machine-learning/README.md).
 - **No** usar EventBridge ni Lambda para este flujo en el diseño objetivo del proyecto.
 
 ## 14. Route 53 y DNS
@@ -358,4 +359,4 @@ Los importes varían con tráfico y tamaños; son una referencia inicial:
 
 - [aws-setup.md](./aws-setup.md) — índice breve y enlace a esta guía.
 - [dynamo-tables.md](./dynamo-tables.md) — esquema DynamoDB.
-- [ml-segmentation/README.md](./ml-segmentation/README.md) — entrenamiento y subida del modelo (cron + Python).
+- [machine-learning/README.md](../machine-learning/README.md) — entrenamiento y subida del modelo (cron + Python).

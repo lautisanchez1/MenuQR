@@ -51,7 +51,7 @@ Objetivo: subredes **públicas** (para el ALB) y **privadas** (para EC2 y RDS), 
 1. Consola AWS → busca **VPC** → **Create VPC**.
 2. Elige **VPC and more**.
 3. Marca: **2 Availability Zones**, **2 public subnets**, **2 private subnets**, **1 NAT Gateway** (o 1 por AZ si quieres más resiliencia, sube coste).
-4. Nombre algo como `menudigital-vpc` y crea.
+4. Nombre algo como `menuqr-vpc` y crea.
 5. Anota los IDs de las **subredes privadas** y **públicas** (los usarás en RDS, ALB y EC2).
 
 Si no quieres pagar NAT al principio, puedes poner la primera EC2 en subred **pública** solo para **pruebas** (menos seguro); esta guía asume **EC2 en privada + NAT** como en [aws-deploy-guide.md](./aws-deploy-guide.md).
@@ -104,14 +104,14 @@ Crea **tres** security groups en la misma VPC (nombre sugerido entre paréntesis
 6. **Storage:** por defecto está bien.
 7. **Connectivity:** VPC creada, subredes **privadas**, **no** público.
 8. **VPC security group:** elige **sg-rds**.
-9. **Database name:** `menudigital` (o el que luego pongas en `DB_URL`).
+9. **Database name:** `menuqr` (o el que luego pongas en `DB_URL`).
 10. Crea la base y espera a que el estado sea **Available**.
-11. En la ficha del RDS copia el **endpoint** (algo como `menudigital.xxxx.us-east-1.rds.amazonaws.com`).
+11. En la ficha del RDS copia el **endpoint** (algo como `menuqr.xxxx.us-east-1.rds.amazonaws.com`).
 
 Tu JDBC será:
 
 ```text
-jdbc:postgresql://TU_ENDPOINT:5432/menudigital
+jdbc:postgresql://TU_ENDPOINT:5432/menuqr
 ```
 
 ---
@@ -120,13 +120,13 @@ jdbc:postgresql://TU_ENDPOINT:5432/menudigital
 
 Las tablas deben coincidir con [dynamo-tables.md](./dynamo-tables.md). La forma más rápida es la **CLI** (en tu PC, con `aws configure` hecho).
 
-### 4.1 Tabla `menudigital-events`
+### 4.1 Tabla `menuqr-events`
 
 Ejecuta **un solo bloque** (puedes cambiar el nombre de tabla si quieres, pero luego usa el mismo en variables de entorno):
 
 ```bash
 export AWS_REGION=us-east-1
-export TABLE_EVENTS=menudigital-events
+export TABLE_EVENTS=menuqr-events
 
 aws dynamodb create-table \
   --table-name "$TABLE_EVENTS" \
@@ -152,7 +152,7 @@ Si la tabla ya existe, el comando fallará; en ese caso puedes ignorar el error.
 ### 5.1 Bucket de imágenes
 
 1. **S3** → **Create bucket**.
-2. Nombre **único en el mundo** (ej. `menudigital-images-TU-ACCOUNT-ID`).
+2. Nombre **único en el mundo** (ej. `menuqr-images-TU-ACCOUNT-ID`).
 3. Región la misma que el resto.
 4. **Block Public Access:** para que las imágenes del menú se vean en el navegador, muchas demos desactivan el bloqueo público y ponen una política de lectura; en producción es mejor **CloudFront**. Para empezar, sigue la política de ejemplo en [aws-deploy-guide.md §7](./aws-deploy-guide.md#7-s3) y configura **CORS** si subes desde el admin.
 
@@ -164,7 +164,7 @@ Crea dos buckets (o uno con prefijos) para subir `dist/` de cada frontend despu�
 
 ### 5.3 Bucket de modelos ML (recomendado)
 
-1. Crea otro bucket, ej. `menudigital-models-TU-ACCOUNT-ID` (sin mezclar con imágenes).
+1. Crea otro bucket, ej. `menuqr-models-TU-ACCOUNT-ID` (sin mezclar con imágenes).
 2. El **worker ETL** subirá aquí el artefacto; la **API** solo necesita `GetObject` en la clave que pongas en `RECOMMENDATIONS_MODEL_S3_KEY`.
 
 ---
@@ -173,13 +173,13 @@ Crea dos buckets (o uno con prefijos) para subir `dist/` de cada frontend despu�
 
 No uses claves de acceso largas en el `.env` en producción: **Instance profile** por tipo de máquina.
 
-### 6.1 Rol para el ASG / API (`menudigital-api-ec2`)
+### 6.1 Rol para el ASG / API (`menuqr-api-ec2`)
 
 Permite imágenes + DynamoDB + **lectura** del bucket de modelos. Copia el JSON de la guía técnica ([rol API — §8.1](./aws-deploy-guide.md)).
 
-### 6.2 Rol para EC2 ETL/ML (`menudigital-etl-ec2`) — opcional
+### 6.2 Rol para EC2 ETL/ML (`menuqr-etl-ec2`) — opcional
 
-Para [ml-segmentation](./ml-segmentation/README.md) y scripts que **suban** el modelo a S3. JSON en la guía técnica ([§8.2](./aws-deploy-guide.md)).
+Para [machine-learning](../machine-learning/README.md) y scripts que **suban** el modelo a S3. JSON en la guía técnica ([§8.2](./aws-deploy-guide.md)).
 
 Asocia **6.1** al **Launch Template** del ASG (o a la primera EC2 si aún no usás ASG).
 
@@ -192,15 +192,15 @@ En tu máquina, en la carpeta del repo:
 ```bash
 cd backend
 mvn -DskipTests package
-docker build -f src/main/docker/Dockerfile.jvm -t menudigital-backend:latest .
+docker build -f src/main/docker/Dockerfile.jvm -t menuqr-backend:latest .
 ```
 
 Subir a **ECR** (registro de contenedores de Amazon):
 
-1. Consola **ECR** → **Create repository** → nombre `menudigital-backend` → privado.
+1. Consola **ECR** → **Create repository** → nombre `menuqr-backend` → privado.
 2. Sigue los comandos **“View push commands”** que te muestra AWS (login, tag, push).  
    Al final tendrás una URI tipo:  
-   `123456789012.dkr.ecr.us-east-1.amazonaws.com/menudigital-backend:latest`
+   `123456789012.dkr.ecr.us-east-1.amazonaws.com/menuqr-backend:latest`
 
 ---
 
@@ -213,7 +213,7 @@ openssl genrsa -out privateKey.pem 2048
 openssl rsa -pubout -in privateKey.pem -out publicKey.pem
 ```
 
-Cópialas a la carpeta donde estaré el `docker-compose.prod.yml` en la EC2 (mismos paths que en el compose: montados en el contenedor). **No las subas a Git.**
+Colocalas en la **raíz del repositorio** en la EC2 (junto a `.env` y `infrastructure/docker/`; el compose monta `../../privateKey.pem` desde esa carpeta). **No las subas a Git.**
 
 ---
 
@@ -246,7 +246,7 @@ Así las nuevas instancias del ASG se registran solas en el TG y el balanceador 
 #### B.1 Launch Template (plantilla de lanzamiento)
 
 1. Consola **EC2** → menú izquierdo **Launch Templates** → **Create launch template**.
-2. **Launch template name:** por ejemplo `menudigital-api-lt`.
+2. **Launch template name:** por ejemplo `menuqr-api-lt`.
 3. **Template version description:** `v1` (o la que quieras).
 4. **Application and OS Images (AMI):** busca **Amazon Linux 2023** (Kernel 6.1, 64-bit x86).
 5. **Instance type:** `t3.small` (o superior si necesitás más RAM para Docker).
@@ -254,7 +254,7 @@ Así las nuevas instancias del ASG se registran solas en el TG y el balanceador 
 7. **Network settings** → **Security groups:** elige **`sg-api`** (no hace falta fijar subred aquí; el ASG la elige).
 8. **Storage:** volumen raíz **gp3**, por ejemplo **30 GiB** (Docker + imágenes ocupan espacio).
 9. **Advanced details:**
-   - **IAM instance profile:** rol **API** del paso 6.1 (`menudigital-api-ec2` o el nombre que hayas puesto).
+   - **IAM instance profile:** rol **API** del paso 6.1 (`menuqr-api-ec2` o el nombre que hayas puesto).
    - **User data** (texto, **no** base64 en la consola; AWS lo codifica solo). Dos enfoques:
      - **Con ECR:** instalar Docker + Compose, `aws ecr get-login-password | docker login ...`, `docker compose pull && docker compose up -d` (y copiar `.env` + JWT desde S3 o SSM).
      - **Sin ECR:** instalar Docker + Compose + Git, **clonar el repo**, `docker build` del backend en la instancia (el `Dockerfile.jvm` ya ejecuta Maven dentro de la build) y `docker compose up -d`. Ejemplo completo en el repo: [`launch-template/user-data-al2023-build-no-ecr.sh`](./launch-template/user-data-al2023-build-no-ecr.sh). Subí el **health check grace period** del ASG a **600–900 s** porque el primer arranque es lento.
@@ -268,20 +268,20 @@ Así las nuevas instancias del ASG se registran solas en el TG y el balanceador 
    yum install -y docker git
    systemctl enable --now docker
    yum install -y docker-compose-plugin || true  # en AL2 a veces falta; ver script completo en launch-template/
-   mkdir -p /opt/menudigital && cd /opt/menudigital
+   mkdir -p /opt/menuqr && cd /opt/menuqr
    # Con ECR: login + docker compose pull/up
    # Sin ECR: git clone ... && docker build ... && docker compose up -d
    ```
 
-   Ajustá el user-data a cómo vayas a inyectar **`.env`** (S3, SSM, etc.); el [Paso 10](#paso-10--archivo-env-y-docker-composeprodyml-en-el-servidor) describe el contenido del `.env`.
+   Ajustá el user-data a cómo vayas a inyectar **`.env`** (S3, SSM, etc.); el [Paso 10](#paso-10--archivo-env-y-compose-en-el-servidor) describe el contenido del `.env`.
 
 10. **Create launch template**.
 
 #### B.2 Auto Scaling Group
 
 1. **EC2** → **Auto Scaling Groups** → **Create Auto Scaling group**.
-2. **Name:** por ejemplo `menudigital-api-asg`.
-3. **Launch template:** seleccioná `menudigital-api-lt` y la **versión** (`Default` o `$Latest`).
+2. **Name:** por ejemplo `menuqr-api-asg`.
+3. **Launch template:** seleccioná `menuqr-api-lt` y la **versión** (`Default` o `$Latest`).
 4. **VPC:** tu VPC; **Availability Zones and subnets:** elegí **dos subredes privadas**, una por AZ (las mismas familia donde puede enrutar el ALB hacia instancias privadas).
 5. **Load balancing** (importante):
    - Elegí **Attach to an existing load balancer**.
@@ -313,23 +313,23 @@ Sustituí IDs y ARNs por los tuyos (`subnet-xxx`, `lt-xxx`, `arn:aws:elasticload
 # 1) Launch template (versión 1) — el user-data debe ir en base64 en CLI
 #    (generar con: base64 -w0 user-data.sh > user-data.b64 y pegar en --user-data file://...)
 aws ec2 create-launch-template \
-  --launch-template-name menudigital-api-lt \
+  --launch-template-name menuqr-api-lt \
   --version-description v1 \
   --launch-template-data '{
     "ImageId": "ami-XXXXXXXX",
     "InstanceType": "t3.small",
     "SecurityGroupIds": ["sg-api"],
-    "IamInstanceProfile": {"Name": "menudigital-api-ec2-profile"},
+    "IamInstanceProfile": {"Name": "menuqr-api-ec2-profile"},
     "UserData": "BASE64_DEL_SCRIPT"
   }'
 
 # 2) Auto Scaling Group
 aws autoscaling create-auto-scaling-group \
-  --auto-scaling-group-name menudigital-api-asg \
-  --launch-template LaunchTemplateName=menudigital-api-lt,Version='$Latest' \
+  --auto-scaling-group-name menuqr-api-asg \
+  --launch-template LaunchTemplateName=menuqr-api-lt,Version='$Latest' \
   --min-size 1 --max-size 2 --desired-capacity 1 \
   --vpc-zone-identifier "subnet-AZ1-privada,subnet-AZ2-privada" \
-  --target-group-arns "arn:aws:elasticloadbalancing:REGION:ACCOUNT:targetgroup/menudigital-tg/xxxx" \
+  --target-group-arns "arn:aws:elasticloadbalancing:REGION:ACCOUNT:targetgroup/menuqr-tg/xxxx" \
   --health-check-type ELB \
   --health-check-grace-period 300
 ```
@@ -347,22 +347,22 @@ En la instancia: Docker + Compose ([guía Docker AL2023](https://docs.aws.amazon
 
 ---
 
-## Paso 10 — Archivo `.env` y `docker-compose.prod.yml` en el servidor
+## Paso 10 — Archivo .env y compose en el servidor
 
-En la EC2, en la carpeta donde tengas `docker-compose.prod.yml` y las claves JWT:
+En la EC2, en la **raíz del repo** clonado (ahí van `privateKey.pem`, `publicKey.pem`, `.env` y la carpeta `infrastructure/`):
 
-1. Copia `docker-compose.prod.yml` del repo (y ajusta si las rutas de contexto build apuntan a ECR en lugar de `build:` local; lo habitual es **solo** `image: ...ecr.../menudigital-backend:latest` sin `build` en producción).
+1. Usá `infrastructure/docker/docker-compose.prod.yml` del repo (o cloná el repo entero). Ajustá si el `build:` debe sustituirse por `image:` de ECR en producción.
 2. Crea `.env` (permisos restrictivos):
 
 ```bash
-DB_URL=jdbc:postgresql://TU_ENDPOINT_RDS:5432/menudigital
+DB_URL=jdbc:postgresql://TU_ENDPOINT_RDS:5432/menuqr
 DB_USER=EL_USUARIO_RDS
 DB_PASS=LA_CONTRASEÑA_RDS
 AWS_REGION=us-east-1
-S3_BUCKET=menudigital-images-TU-CUENTA
-DYNAMO_TABLE=menudigital-events
+S3_BUCKET=menuqr-images-TU-CUENTA
+DYNAMO_TABLE=menuqr-events
 # Opcional: bucket solo modelos (recomendado ≠ imágenes)
-# RECOMMENDATIONS_MODEL_S3_BUCKET=menudigital-models-TU-CUENTA
+# RECOMMENDATIONS_MODEL_S3_BUCKET=menuqr-models-TU-CUENTA
 # RECOMMENDATIONS_MODEL_S3_KEY=recommendations/v1/model.onnx
 S3_PUBLIC_URL=https://TU-BUCKET.s3.us-east-1.amazonaws.com
 ```
@@ -374,11 +374,11 @@ S3_PUBLIC_URL=https://TU-BUCKET.s3.us-east-1.amazonaws.com
 
 ```bash
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
-docker compose -f docker-compose.prod.yml --env-file .env pull
-docker compose -f docker-compose.prod.yml --env-file .env up -d
+docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env pull
+docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env up -d
 ```
 
-4. Comprueba logs: `docker compose logs -f backend`.
+4. Comprueba logs: `docker compose -f infrastructure/docker/docker-compose.prod.yml logs -f backend`.
 
 ---
 
@@ -424,7 +424,7 @@ Sube cada `dist/` a su bucket S3 (y si usas website hosting o CloudFront, config
 
 ## Paso 14 — EC2 ETL / ML (opcional)
 
-Arquitectura objetivo: **instancia dedicada** (no el ASG de la API), `sg-etl`, rol **ETL** (paso 6.2), **cron** + Python como en [ml-segmentation/README.md](./ml-segmentation/README.md) para entrenar y subir el artefacto al bucket de **§5.3**.
+Arquitectura objetivo: **instancia dedicada** (no el ASG de la API), `sg-etl`, rol **ETL** (paso 6.2), **cron** + Python como en [machine-learning/README.md](../machine-learning/README.md) para entrenar y subir el artefacto al bucket de **§5.3**.
 
 ---
 

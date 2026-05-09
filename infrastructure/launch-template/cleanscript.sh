@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Log: sudo tail -f /var/log/menudigital-user-data.log
+# Log: sudo tail -f /var/log/menuqr-user-data.log
 
-exec > >(tee /var/log/menudigital-user-data.log) 2>&1
+exec > >(tee /var/log/menuqr-user-data.log) 2>&1
 set -euxo pipefail
 
 yum update -y
@@ -18,7 +18,7 @@ if ! yum install -y docker-compose-plugin; then
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 fi
 
-APP_PARENT="/opt/menudigital"
+APP_PARENT="/opt/menuqr"
 APP_DIR="${APP_PARENT}/MenuQR"
 mkdir -p "${APP_PARENT}"
 cd "${APP_PARENT}"
@@ -29,13 +29,13 @@ fi
 cd "${APP_DIR}"
 
 cat > .env <<'ENVEOF'
-DB_URL=jdbc:postgresql://menuqr-db.c9auakcmctma.us-east-1.rds.amazonaws.com:5432/menudigital
+DB_URL=jdbc:postgresql://menuqr-db.c9auakcmctma.us-east-1.rds.amazonaws.com:5432/menuqr
 DB_USER=postgres
 DB_PASS=postgres
 AWS_REGION=us-east-1
 S3_BUCKET=menu-qr-images-bucket
 S3_PUBLIC_URL=
-DYNAMO_TABLE=menudigital-events
+DYNAMO_TABLE=menuqr-events
 S3_ENDPOINT=
 DYNAMO_ENDPOINT=
 QUARKUS_PROFILE=prod
@@ -51,6 +51,6 @@ if [ ! -f privateKey.pem ]; then
 fi
 mkdir -p ssl
 
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --build
 
-echo "menudigital cleanscript finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "menuqr cleanscript finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
