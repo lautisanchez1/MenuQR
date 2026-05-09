@@ -108,3 +108,6 @@ backend/surefire-reports/
 *.swp
 *~
 .cache/
+
+*.terraform.lock.hcl
+*.terraform
