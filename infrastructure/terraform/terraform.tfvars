@@ -17,4 +17,4 @@ rds_backup_retention_period = 7
 
 ec2_instance_type             = "t3.micro"
 ec2_key_name                  = null
-ec2_iam_instance_profile_name = "LabRole"
+ec2_iam_instance_profile_name = "LabInstanceProfile"
