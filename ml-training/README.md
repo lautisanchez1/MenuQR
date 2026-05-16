@@ -17,8 +17,8 @@ Java **no** lee joblib (pickle); el binario MREC es el contrato estable entre ET
 
 ## Código
 
-- `recommendations_etl.py` — PostgreSQL, DynamoDB, codificación MREC, `joblib.dump`, SQS.
-- `orchestrator_lambda.py` / `worker_lambda.py` — Lambdas.
+- `recommendations_etl.py` — lógica compartida para el **CLI** local (`train_upload_model.py`).
+- `orchestrator_lambda.py` / `worker_lambda.py` — **un fichero .py por Lambda** (código duplicado a propósito para empaquetado simple).
 
 ## CLI rápido (local)
 
@@ -39,15 +39,19 @@ python3 train_upload_model.py
 | Variable | Descripción |
 |----------|-------------|
 | `RECOMMENDATIONS_MODEL_S3_BUCKET` | Bucket (mismo que modelos ML suele bastar) |
-| `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` | Clave del **.bin** con `{tenantId}` (default `recommendations/{tenantId}/model.bin`) |
+| Clave del **.bin** | Fija en código: `recommendations/{tenantId}/model.bin` (Java, worker, ETL) |
 | `DB_*`, `DB_SECRET_ARN`, `TENANT_IDS`, … | Ver secciones anteriores del repo / guía AWS |
 
 ## Build Lambdas
 
+Antes de `terraform apply`, generar `lambda_dist/` (cada carpeta contiene un solo `.py` + dependencias pip):
+
 ```bash
 bash ml-training/scripts/build_lambda_dists.sh
-# macOS/ARM: usar imagen public.ecr.aws/sam/build-python3.12 (ver sección anterior en historial / guía Terraform).
+# macOS/ARM: docker run --rm -v "$(pwd)/ml-training:/opt/ml" -w /opt/ml public.ecr.aws/sam/build-python3.12 bash scripts/build_lambda_dists.sh
 ```
+
+Handlers: `orchestrator_lambda.handler`, `worker_lambda.handler`.
 
 ## Formato MREC v4 (referencia)
 

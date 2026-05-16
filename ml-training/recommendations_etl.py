@@ -24,7 +24,8 @@ import psycopg2
 from botocore.exceptions import ClientError
 from sklearn.dummy import DummyClassifier
 
-DEFAULT_KEY_PATTERN = "recommendations/{tenantId}/model.bin"
+# Clave fija; debe coincidir con RecommendationModelLoader (Java) y worker_lambda.py.
+MODEL_S3_KEY_PATTERN = "recommendations/{tenantId}/model.bin"
 
 # Magic big-endian int: 'M','R','E','C'
 MREC_MAGIC = 0x4D524543
@@ -258,15 +259,9 @@ def build_artifact_for_tenant(tenant_id: str, date_str: str) -> dict[str, Any]:
     }
 
 
-def joblib_key_from_bin_pattern(pattern: str, tenant_id: str) -> str:
-    key_bin = pattern.replace("{tenantId}", tenant_id)
-    if key_bin.endswith(".bin"):
-        return key_bin[:-4] + ".joblib"
-    return key_bin + ".joblib"
-
-
-def s3_key_pattern() -> str:
-    return (os.environ.get("RECOMMENDATIONS_MODEL_S3_KEY_PATTERN") or "").strip() or DEFAULT_KEY_PATTERN
+def joblib_key_for_tenant(tenant_id: str) -> str:
+    key_bin = MODEL_S3_KEY_PATTERN.replace("{tenantId}", tenant_id)
+    return key_bin[:-4] + ".joblib"
 
 
 def recommendations_bucket() -> str:
@@ -279,15 +274,12 @@ def upload_artifact_for_tenant(tenant_id: str, source_day: str) -> tuple[str, st
     Devuelve (uri_bin, uri_joblib, bytes_bin, num_items_popularity).
     """
     bucket = recommendations_bucket()
-    pattern = s3_key_pattern()
     if not bucket:
         raise ValueError("RECOMMENDATIONS_MODEL_S3_BUCKET no está definido")
-    if "{tenantId}" not in pattern:
-        raise ValueError(f"RECOMMENDATIONS_MODEL_S3_KEY_PATTERN debe contener {{tenantId}} (ej. {DEFAULT_KEY_PATTERN})")
 
     artifact = build_artifact_for_tenant(tenant_id, source_day)
-    key_bin = pattern.replace("{tenantId}", tenant_id)
-    key_job = joblib_key_from_bin_pattern(pattern, tenant_id)
+    key_bin = MODEL_S3_KEY_PATTERN.replace("{tenantId}", tenant_id)
+    key_job = joblib_key_for_tenant(tenant_id)
 
     mrec_body = encode_mrec_binary(artifact)
     s3_client().put_object(

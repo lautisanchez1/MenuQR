@@ -13,17 +13,8 @@ import recommendations_etl as etl
 
 
 def main() -> int:
-    bucket = etl.recommendations_bucket()
-    pattern = etl.s3_key_pattern()
-    if not bucket:
+    if not etl.recommendations_bucket():
         print("ERROR: Define RECOMMENDATIONS_MODEL_S3_BUCKET", file=sys.stderr)
-        return 1
-    if "{tenantId}" not in pattern:
-        print(
-            "ERROR: RECOMMENDATIONS_MODEL_S3_KEY_PATTERN debe contener el literal {tenantId} "
-            f"(ej. {etl.DEFAULT_KEY_PATTERN})",
-            file=sys.stderr,
-        )
         return 1
 
     try:

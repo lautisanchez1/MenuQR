@@ -23,6 +23,8 @@ public class RecommendationModelLoader {
 
     private static final Logger LOG = Logger.getLogger(RecommendationModelLoader.class);
     private static final String TENANT_PLACEHOLDER = "{tenantId}";
+    /** Clave S3 del .bin; debe coincidir con el worker ML y el ETL. */
+    private static final String MODEL_S3_KEY_PATTERN = "recommendations/{tenantId}/model.bin";
 
     @Inject
     S3ClientFactory s3ClientFactory;
@@ -30,25 +32,10 @@ public class RecommendationModelLoader {
     @ConfigProperty(name = "recommendations.model.s3.bucket")
     Optional<String> modelBucket;
 
-    /**
-     * Patrón de clave S3 del fichero binario; debe incluir el literal {@code {tenantId}}
-     * (ej. {@code recommendations/{tenantId}/model.bin}).
-     */
-    @ConfigProperty(name = "recommendations.model.s3.key.pattern", defaultValue = "recommendations/{tenantId}/model.bin")
-    Optional<String> keyPattern;
-
     private final ConcurrentHashMap<String, Map<String, Integer>> cache = new ConcurrentHashMap<>();
 
     private boolean configured() {
-        String bucket = modelBucket.map(String::trim).filter(s -> !s.isEmpty()).orElse(null);
-        String pattern = effectiveKeyPattern();
-        return bucket != null
-            && pattern != null
-            && pattern.contains(TENANT_PLACEHOLDER);
-    }
-
-    private String effectiveKeyPattern() {
-        return keyPattern.map(String::trim).filter(s -> !s.isEmpty()).orElse("recommendations/{tenantId}/model.bin");
+        return modelBucket.map(String::trim).filter(s -> !s.isEmpty()).isPresent();
     }
 
     /**
@@ -69,11 +56,10 @@ public class RecommendationModelLoader {
 
     private Optional<Map<String, Integer>> loadPopularityForTenant(String tenantId) {
         String bucket = modelBucket.map(String::trim).filter(s -> !s.isEmpty()).orElse(null);
-        String pattern = effectiveKeyPattern();
-        if (bucket == null || !pattern.contains(TENANT_PLACEHOLDER)) {
+        if (bucket == null) {
             return Optional.empty();
         }
-        String key = pattern.replace(TENANT_PLACEHOLDER, tenantId);
+        String key = MODEL_S3_KEY_PATTERN.replace(TENANT_PLACEHOLDER, tenantId);
         try (S3Client s3 = s3ClientFactory.createClient()) {
             var response = s3.getObjectAsBytes(
                 GetObjectRequest.builder().bucket(bucket).key(key).build()
