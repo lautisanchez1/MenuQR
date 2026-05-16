@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './auth/LoginPage';
 import { RegisterPage } from './auth/RegisterPage';
-import { DashboardPage } from './dashboard/DashboardPage';
 import { MenuPage } from './menu/MenuPage';
 import { AnalyticsPage } from './analytics/AnalyticsPage';
 import { TablesPage } from './tables/TablesPage';
@@ -25,12 +24,12 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
+          <Route index element={<AnalyticsPage />} />
+          <Route path="analytics" element={<Navigate to="/admin" replace />} />
           <Route path="menu" element={<MenuPage />} />
           <Route path="tables" element={<TablesPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="theme" element={<ThemePage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
         </Route>
         <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />

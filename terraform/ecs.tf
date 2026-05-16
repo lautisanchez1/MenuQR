@@ -1,5 +1,3 @@
-# JWT: claves RSA en la imagen del backend (src/main/resources/publicKey.pem, privateKey.pem).
-
 # --- ECR ---
 
 resource "aws_ecr_repository" "backend" {

@@ -122,3 +122,7 @@ terraform/terraform.tfstate.*
 terraform/terraform.tfstate.backup
 terraform/backend.hcl
 terraform/lambda_*.zip
+
+*.tfstate
+*.tfstate.backup
+*lock.hcl

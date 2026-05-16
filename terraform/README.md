@@ -9,6 +9,23 @@ Además, se recompilan datos de interacción que se usan para analitica y entren
 
 ## Arquitectura
 
+## CI (GitHub Actions)
+
+Workflow [`.github/workflows/terraform.yml`](../.github/workflows/terraform.yml):
+
+| Job | Cuándo | Qué hace |
+|-----|--------|----------|
+| **Init & validate** | Siempre en PR/push | `build_lambda_dists.sh` → `terraform fmt -check` → `init -backend=false` → `validate` |
+| **Plan (AWS)** | Si el repo tiene secrets AWS | `plan -var-file=terraform.tfvars` y sube artefacto `plan.txt` |
+
+Secrets opcionales en GitHub (**Settings → Secrets → Actions**), típico con credenciales temporales de AWS Academy:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN` (requerido con LabRole / STS)
+
+Sin secrets, el pipeline igual valida la sintaxis y módulos; el plan se omite.
+
 ## Requerimientos
 
 
@@ -18,34 +35,34 @@ Además, se recompilan datos de interacción que se usan para analitica y entren
 
 Aclaración: Los scripts fueron probados en Linux, aunque deberian funcionar tambien en MAC o en Windows mediante el uso de WSL
 
+## Scripts (`terraform/scripts/`)
+
+| Script | Uso |
+|--------|-----|
+| `deploy.sh` | **Completo:** Lambdas → `terraform apply` → backend → frontends |
+| `deploy-backend.sh` | Solo ECR + ECS (infra ya aplicada) |
+| `deploy-frontends.sh` | Solo build Vite + sync S3 |
+| `terraform-init-remote.sh` | Bootstrap state remoto S3 + `terraform init` |
+
+El empaquetado de Lambdas sigue en `ml-training/scripts/build_lambda_dists.sh` (lo invoca `deploy.sh`).
+
 ## Instrucciones de Ejecución
 
-### 1. Preparar los zip con el codigo de las lambda
+### Todo en uno (recomendado)
+
+```bash
+bash terraform/scripts/deploy.sh
+```
+
+Variables útiles: `SKIP_TERRAFORM_APPLY=1` (solo app), `TERRAFORM_PLAN_ONLY=1` (solo plan), `IMAGE_TAG`, `SKIP_MVN`, `SKIP_INSTALL`.
+
+### Paso a paso
 
 ```bash
 bash ml-training/scripts/build_lambda_dists.sh
-```
-
-### 2. Aplicar los archivos .tf
-
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-### 3. Deployar el backend y subir los frontend estaticos
-
-```bash
-bash scripts/deploy-backend.sh
-bash scripts/deploy-frontends.sh
-```
-
-### Alternativa -> Script con el proceso completo
-
-```bash
-bash scripts/deploy.sh`
+cd terraform && terraform init && terraform apply
+bash terraform/scripts/deploy-backend.sh
+bash terraform/scripts/deploy-frontends.sh
 ```
 
 ### Outputs útiles

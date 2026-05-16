@@ -1,15 +1,14 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
-import { LayoutDashboard, UtensilsCrossed, BarChart3, LogOut, QrCode, ClipboardList, Palette } from 'lucide-react';
+import { UtensilsCrossed, BarChart3, LogOut, QrCode, ClipboardList, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin', icon: BarChart3, label: 'Analytics' },
   { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
   { to: '/admin/tables', icon: QrCode, label: 'Tables & QR' },
   { to: '/admin/orders', icon: ClipboardList, label: 'Orders' },
   { to: '/admin/theme', icon: Palette, label: 'Theme' },
-  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
 export function AppShell() {
@@ -27,7 +26,7 @@ export function AppShell() {
         <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
           <div className="flex h-full flex-col">
             <div className="border-b px-6 py-4">
-              <h1 className="text-xl font-bold text-primary">MenuDigital</h1>
+              <h1 className="text-xl font-bold text-primary">MenuQR</h1>
               <p className="text-sm text-muted-foreground truncate">{restaurantName}</p>
             </div>
             
