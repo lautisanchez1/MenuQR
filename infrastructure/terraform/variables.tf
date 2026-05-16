@@ -74,3 +74,21 @@ variable "ec2_iam_instance_profile_name" {
   nullable    = true
   description = "IAM instance profile name for the EC2 (Learner Lab often uses LabRole as profile name). Set null to omit."
 }
+
+variable "asg_min_size" {
+  type        = number
+  description = "Minimum number of instances in the ASG."
+  default     = 1
+}
+
+variable "asg_desired_capacity" {
+  type        = number
+  description = "Desired number of instances in the ASG."
+  default     = 2
+}
+
+variable "asg_max_size" {
+  type        = number
+  description = "Maximum number of instances in the ASG."
+  default     = 4
+}
