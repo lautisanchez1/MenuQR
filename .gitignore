@@ -114,3 +114,11 @@ ml-training/lambda_dist/
 infrastructure/terraform/.build/
 
 *.terraform
+.terraform/
+
+# Terraform state (usar backend remoto S3; ver terraform/scripts/terraform-init-remote.sh)
+terraform/terraform.tfstate
+terraform/terraform.tfstate.*
+terraform/terraform.tfstate.backup
+terraform/backend.hcl
+terraform/lambda_*.zip

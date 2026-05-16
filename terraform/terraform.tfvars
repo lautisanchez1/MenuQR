@@ -12,3 +12,8 @@ db = {
   name     = "menudigital"
   username = "menuqr_admin"
 }
+
+backend = {
+  image_tag = "latest"
+  desired_count = 2
+}

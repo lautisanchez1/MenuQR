@@ -1,8 +1,3 @@
-locals {
-  db_jdbc_url = "jdbc:postgresql://${module.rds_proxy.proxy_endpoint}:${aws_db_instance.db.port}/${var.db.name}"
-}
-
-
 resource "aws_security_group" "db_client" {
   name_prefix = "menuqr-db-client-"
   vpc_id      = module.vpc.vpc_id
@@ -96,7 +91,8 @@ module "rds_proxy" {
   version = "4.4.0"
 
   name            = "menuqr-rds-proxy"
-  create_iam_role = true
+  create_iam_role = false
+  role_arn        = data.aws_iam_role.lab_role.arn
   require_tls     = true
 
   vpc_subnet_ids         = module.vpc.private_subnets
