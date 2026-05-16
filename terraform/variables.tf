@@ -27,7 +27,7 @@ variable "backend" {
 variable "ml_training" {
   type = object({
     schedule_expression = string
-    schedule_enables = bool
+    schedule_enabled = bool
     sqs_batch_size = number
   })
 }
