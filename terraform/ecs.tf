@@ -1,27 +1,4 @@
-# --- JWT en Secrets Manager (generado en el primer apply) ---
-
-resource "tls_private_key" "jwt" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-resource "aws_secretsmanager_secret" "jwt_private" {
-  name_prefix = "${local.name_prefix}-jwt-private-"
-}
-
-resource "aws_secretsmanager_secret_version" "jwt_private" {
-  secret_id     = aws_secretsmanager_secret.jwt_private.id
-  secret_string = tls_private_key.jwt.private_key_pem
-}
-
-resource "aws_secretsmanager_secret" "jwt_public" {
-  name_prefix = "${local.name_prefix}-jwt-public-"
-}
-
-resource "aws_secretsmanager_secret_version" "jwt_public" {
-  secret_id     = aws_secretsmanager_secret.jwt_public.id
-  secret_string = tls_private_key.jwt.public_key_pem
-}
+# JWT: claves RSA en la imagen del backend (src/main/resources/publicKey.pem, privateKey.pem).
 
 # --- ECR ---
 
@@ -164,17 +141,6 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "DYNAMO_TABLE", value = aws_dynamodb_table.menuqr_events.name },
       { name = "QUARKUS_PROFILE", value = "prod" },
       { name = "RECOMMENDATIONS_MODEL_S3_BUCKET", value = local.ml_bucket_name },
-    ]
-
-    secrets = [
-      {
-        name      = "JWT_PUBLIC_PEM"
-        valueFrom = aws_secretsmanager_secret.jwt_public.arn
-      },
-      {
-        name      = "JWT_PRIVATE_PEM"
-        valueFrom = aws_secretsmanager_secret.jwt_private.arn
-      }
     ]
   }])
 }

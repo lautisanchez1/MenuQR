@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "this" {
   bucket_prefix = var.name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "this" {

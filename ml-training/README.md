@@ -11,9 +11,9 @@ Hay **tres formas** de ejecutar el pipeline (agregación `ITEM_VIEW` por tenant 
 | Fichero | Formato | Consumidor |
 |---------|---------|------------|
 | `…/model.bin` (patrón configurable) | **MREC v4** binario (magic `MREC`, UTF-8, mapa item→conteos) | **API Java** (`RecommendationModelLoader`) |
-| mismo prefijo `…/model.joblib` | **joblib** (dict Python: metadatos, `item_popularity`, `placeholder_estimator` sklearn) | Python / notebooks / pipelines ML |
+| mismo prefijo `…/model.joblib` | **joblib** (dict Python: metadatos, `item_popularity`, `placeholder_estimator` sklearn) | Python / notebooks / CLI (`recommendations_etl.py`) |
 
-Java **no** lee joblib (pickle); el binario MREC es el contrato estable entre ETL y backend.
+Java **no** lee joblib (pickle); el binario MREC es el contrato estable entre ETL y backend. La **Lambda worker** solo sube `.bin` (paquete liviano, sin sklearn en el zip).
 
 ## Código
 

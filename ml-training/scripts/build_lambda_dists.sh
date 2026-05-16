@@ -14,8 +14,7 @@ cp "${ROOT}/worker_lambda.py" "${DIST}/worker/"
 echo "Instalando psycopg2-binary en orquestador..."
 pip install --disable-pip-version-check -q -t "${DIST}/orchestrator" 'psycopg2-binary>=2.9'
 
-echo "Instalando dependencias ML en worker..."
-pip install --disable-pip-version-check -q -t "${DIST}/worker" 'joblib>=1.3' 'numpy>=1.24' 'scikit-learn>=1.3'
+echo "Worker: sin pip (boto3/botocore vienen en el runtime Lambda)"
 
 echo "Listo: ${DIST}/orchestrator (orchestrator_lambda.handler)"
 echo "       ${DIST}/worker (worker_lambda.handler)"

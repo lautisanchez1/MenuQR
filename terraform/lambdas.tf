@@ -12,7 +12,6 @@ module "ml_orchestrator_lambda" {
 
   environment_variables = {
     TRAINING_JOB_QUEUE_URL = aws_sqs_queue.ml-training.url
-    AWS_REGION             = data.aws_region.current.region
     DB_SECRET_ARN          = aws_db_instance.db.master_user_secret[0].secret_arn
     DB_URL                 = local.db_jdbc_url
   }
@@ -30,7 +29,6 @@ module "ml_worker_lambda" {
   environment_variables = {
     EVENTS_TABLE                    = aws_dynamodb_table.menuqr_events.name
     RECOMMENDATIONS_MODEL_S3_BUCKET = module.s3-private-buckets[var.ml_bucket_name].bucket_name
-    AWS_REGION                      = data.aws_region.current.region
   }
 }
 

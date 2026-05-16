@@ -3,10 +3,10 @@ vpc = {
   name = "MenuQR-vpc"
 }
 
-images_bucket_name = "menuQR-images"
-ml_bucket_name = "menuQR-ml"
-user_website_name = "menuQR-User"
-admin_website_name = "menuQR-Admin"
+images_bucket_name = "menuqr-images"
+ml_bucket_name = "menuqr-ml"
+user_website_name = "menuqr-user"
+admin_website_name = "menuqr-admin"
 
 db = {
   name     = "menudigital"

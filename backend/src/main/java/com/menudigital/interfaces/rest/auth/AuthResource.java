@@ -53,6 +53,10 @@ public class AuthResource {
             return Response.status(Response.Status.CONFLICT)
                 .entity(new ErrorResponse("EMAIL_EXISTS", e.getMessage()))
                 .build();
+        } catch (Exception e) {
+            return Response.serverError()
+                .entity(new ErrorResponse("REGISTER_FAILED", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()))
+                .build();
         }
     }
     

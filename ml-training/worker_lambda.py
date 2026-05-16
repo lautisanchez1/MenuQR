@@ -1,11 +1,11 @@
 """
-Lambda worker (un solo fichero): un mensaje SQS = un tenant; agrega DynamoDB y sube MREC + joblib a S3.
+Lambda worker (un solo fichero): un mensaje SQS = un tenant; agrega DynamoDB y sube MREC (.bin) a S3.
+Sin sklearn/joblib: la API Java solo consume el binario MREC (ver RecommendationModelLoader).
 Handler: worker_lambda.handler
 """
 from __future__ import annotations
 
 import datetime
-import io
 import json
 import os
 import struct
@@ -14,10 +14,7 @@ from collections import defaultdict
 from typing import Any
 
 import boto3
-import joblib
-import numpy as np
 from botocore.exceptions import ClientError
-from sklearn.dummy import DummyClassifier
 
 # Clave fija; debe coincidir con RecommendationModelLoader (Java) y recommendations_etl.py.
 MODEL_S3_KEY_PATTERN = "recommendations/{tenantId}/model.bin"
@@ -119,37 +116,26 @@ def encode_mrec_binary(artifact: dict[str, Any]) -> bytes:
 
 def build_artifact_for_tenant(tenant_id: str, date_str: str) -> dict[str, Any]:
     counts = query_item_views_for_day(tenant_id, date_str)
-    X = np.array([[0.0, float(sum(counts.values()) or 0)]])
-    y = np.array([0])
-    dummy = DummyClassifier(strategy="most_frequent")
-    dummy.fit(X, y)
     return {
         "artifact_version": MREC_VERSION,
         "trained_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "source_day": date_str,
         "tenant_id": tenant_id,
         "item_popularity": counts,
-        "placeholder_estimator": dummy,
     }
-
-
-def joblib_key_for_tenant(tenant_id: str) -> str:
-    key_bin = MODEL_S3_KEY_PATTERN.replace("{tenantId}", tenant_id)
-    return key_bin[:-4] + ".joblib"
 
 
 def recommendations_bucket() -> str:
     return (os.environ.get("RECOMMENDATIONS_MODEL_S3_BUCKET") or "").strip()
 
 
-def upload_artifact_for_tenant(tenant_id: str, source_day: str) -> tuple[str, str, int, int]:
+def upload_artifact_for_tenant(tenant_id: str, source_day: str) -> tuple[str, int, int]:
     bucket = recommendations_bucket()
     if not bucket:
         raise ValueError("RECOMMENDATIONS_MODEL_S3_BUCKET no está definido")
 
     artifact = build_artifact_for_tenant(tenant_id, source_day)
     key_bin = MODEL_S3_KEY_PATTERN.replace("{tenantId}", tenant_id)
-    key_job = joblib_key_for_tenant(tenant_id)
 
     mrec_body = encode_mrec_binary(artifact)
     s3_client().put_object(
@@ -159,18 +145,8 @@ def upload_artifact_for_tenant(tenant_id: str, source_day: str) -> tuple[str, st
         ContentType="application/octet-stream",
     )
 
-    jl_buf = io.BytesIO()
-    joblib.dump(artifact, jl_buf, compress=3)
-    jl_bytes = jl_buf.getvalue()
-    s3_client().put_object(
-        Bucket=bucket,
-        Key=key_job,
-        Body=jl_bytes,
-        ContentType="application/octet-stream",
-    )
-
     n_items = len(artifact["item_popularity"])
-    return f"s3://{bucket}/{key_bin}", f"s3://{bucket}/{key_job}", len(mrec_body), n_items
+    return f"s3://{bucket}/{key_bin}", len(mrec_body), n_items
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -184,8 +160,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 raise ValueError("Mensaje sin tenant_id")
             source_day = body.get("source_day") or default_source_day_utc()
             source_day = str(source_day).strip()
-            uri_bin, uri_jl, nbytes, nitems = upload_artifact_for_tenant(str(tenant_id).strip(), source_day)
-            print(f"OK {tenant_id} -> MREC {uri_bin} ({nbytes} B), joblib {uri_jl}, {nitems} ítems")
+            uri_bin, nbytes, nitems = upload_artifact_for_tenant(str(tenant_id).strip(), source_day)
+            print(f"OK {tenant_id} -> MREC {uri_bin} ({nbytes} B), {nitems} ítems")
         except Exception as e:
             print(f"ERROR messageId={mid}: {e}")
             if mid:
