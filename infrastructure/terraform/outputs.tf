@@ -63,24 +63,14 @@ output "spa_users_website_url" {
   value       = module.spa_bucket_users.website_url
 }
 
-output "ml_models_bucket_id" {
-  description = "Private versioned S3 bucket (ML models)"
-  value       = module.s3_ml_models.bucket_id
+output "s3_private_bucket_ids" {
+  description = "IDs of private versioned S3 buckets"
+  value       = { for k, v in module.s3_private_buckets : k => v.bucket_id }
 }
 
-output "ml_models_bucket_arn" {
-  description = "ARN of the ML models bucket"
-  value       = module.s3_ml_models.bucket_arn
-}
-
-output "user_images_bucket_id" {
-  description = "Private versioned S3 bucket (user images)"
-  value       = module.s3_user_images.bucket_id
-}
-
-output "user_images_bucket_arn" {
-  description = "ARN of the user images bucket"
-  value       = module.s3_user_images.bucket_arn
+output "s3_private_bucket_arns" {
+  description = "ARNs of private versioned S3 buckets"
+  value       = { for k, v in module.s3_private_buckets : k => v.bucket_arn }
 }
 
 output "dynamodb_events_table_name" {
@@ -103,12 +93,22 @@ output "vpc_endpoint_dynamodb_id" {
   value       = aws_vpc_endpoint.dynamodb.id
 }
 
-output "ec2_app_instance_id" {
-  description = "Application EC2 instance ID (private subnet 172.30.7.0/24 with default vpc_cidr layout)"
-  value       = module.ec2_app.id
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = aws_lb.app.dns_name
 }
 
-output "ec2_app_private_ip" {
-  description = "Private IP of the application EC2"
-  value       = module.ec2_app.private_ip
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = aws_lb.app.arn
+}
+
+output "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  value       = aws_autoscaling_group.app.name
+}
+
+output "launch_template_id" {
+  description = "ID of the Launch Template"
+  value       = aws_launch_template.app.id
 }
