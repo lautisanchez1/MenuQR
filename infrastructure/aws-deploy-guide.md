@@ -316,13 +316,14 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 
 El endpoint `POST /api/menu/{slug}/recommendations` prioriza ítems con más vistas (`ITEM_VIEW` agregadas por el job) si existe un JSON en S3 para el **tenant** del menú (`RECOMMENDATIONS_MODEL_S3_BUCKET` + patrón `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` con `{tenantId}`). Si no hay objeto o está vacío, las sugerencias siguen siendo aleatorias entre ítems disponibles fuera del carrito.
 
-## 13. Entrenamiento del modelo en EC2 (opcional)
+## 13. Entrenamiento del modelo en EC2 o Lambda (opcional)
 
-El script **`train_upload_model.py`** en [ml-training/](../ml-training/) lee eventos en DynamoDB, lista tenants desde **PostgreSQL** (`restaurants.id`) y sube **un JSON por tenant** al **bucket de modelos** S3; el rol ETL necesita `s3:PutObject`, `dynamodb:Query`, acceso a la base (`DB_URL` + `DB_USER`/`DB_PASS` o `DB_SECRET_ARN` como la API) y, si usáis secreto, `secretsmanager:GetSecretValue`.
+El código vive en [ml-training/](../ml-training/): **`train_upload_model.py`** (CLI), **`recommendations_etl.py`** (lógica compartida) y Lambdas **`orchestrator_lambda`** / **`worker_lambda`**.
 
-- Ejecutarlo con **cron** en la instancia EC2 (recomendado: IAM role, sin claves en el script).
-- Instrucciones: [ml-training/README.md](../ml-training/README.md).
-- **No** usar EventBridge ni Lambda para este flujo en el diseño objetivo del proyecto.
+- **EC2 + cron**: ejecutar el CLI con las variables `DB_*`, Dynamo y S3 (rol con `dynamodb:Query`, `s3:PutObject`, y si aplica `secretsmanager:GetSecretValue`).
+- **Lambda fan-out** (`enable_recommendations_fanout = true` en Terraform): orquestador en VPC (RDS + cola SQS) y workers sin VPC (Dynamo + bucket ML). Antes de `apply`, generar `ml-training/lambda_dist/*` con `scripts/build_lambda_dists.sh` (en ARM/macOS usar imagen `sam/build-python3.12`, ver README de ml-training).
+- Instrucciones detalladas: [ml-training/README.md](../ml-training/README.md).
+- **No** usar EventBridge hacia Lambdas distintas del diseño anterior si ya tenéis cron en EC2; elegid un modo u otro para no duplicar entrenamientos.
 
 ## 14. Route 53 y DNS
 

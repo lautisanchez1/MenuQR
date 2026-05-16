@@ -28,6 +28,31 @@ variable "dynamodb_events_table_name" {
   description = "DynamoDB table name for menu analytics events (PK/SK only)."
 }
 
+variable "enable_recommendations_fanout" {
+  type        = bool
+  default     = false
+  description = "Lambda orquestador -> SQS -> workers para entrenar JSON de recomendaciones por tenant. Requiere ml-training/lambda_dist/* (ver scripts/build_lambda_dists.sh)."
+}
+
+variable "recommendations_fanout_schedule_expression" {
+  type        = string
+  default     = "cron(15 4 * * ? *)"
+  description = "Expresión EventBridge (UTC) que invoca la Lambda orquestadora."
+}
+
+variable "recommendations_model_s3_key_pattern" {
+  type        = string
+  default     = "recommendations/{tenantId}/model.json"
+  description = "Patrón de clave S3 con {tenantId} para artefactos de recomendación (worker Lambda)."
+}
+
+variable "recommendations_fanout_worker_reserved_concurrency" {
+  type        = number
+  default     = null
+  nullable    = true
+  description = "Límite de concurrencia reservada del worker Lambda (null = sin reserva explícita)."
+}
+
 variable "rds_engine_version" {
   type        = string
   description = "PostgreSQL engine version for RDS"

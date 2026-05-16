@@ -112,3 +112,19 @@ output "ec2_app_private_ip" {
   description = "Private IP of the application EC2"
   value       = module.ec2_app.private_ip
 }
+
+# --- Fan-out Lambda + SQS (solo si enable_recommendations_fanout = true) ---
+output "recommendations_fanout_queue_url" {
+  description = "URL de la cola SQS de trabajos por tenant (null si fan-out desactivado)."
+  value       = length(aws_sqs_queue.reco_training_jobs) > 0 ? aws_sqs_queue.reco_training_jobs[0].url : null
+}
+
+output "recommendations_fanout_orchestrator_function" {
+  description = "Nombre de la Lambda orquestadora (null si desactivado)."
+  value       = length(aws_lambda_function.reco_orchestrator) > 0 ? aws_lambda_function.reco_orchestrator[0].function_name : null
+}
+
+output "recommendations_fanout_worker_function" {
+  description = "Nombre de la Lambda worker (null si desactivado)."
+  value       = length(aws_lambda_function.reco_worker) > 0 ? aws_lambda_function.reco_worker[0].function_name : null
+}

@@ -8,6 +8,9 @@ user_images_bucket_name = "menu-qr-user-images-424242"
 
 dynamodb_events_table_name = "menuqr-events"
 
+# Fan-out Lambda + SQS (requiere ml-training/lambda_dist/* antes del apply):
+# enable_recommendations_fanout = true
+
 rds_engine_version          = "16"
 rds_instance_class          = "db.t4g.micro"
 rds_allocated_storage       = 20
