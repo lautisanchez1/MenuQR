@@ -1,7 +1,5 @@
 package com.menudigital.infrastructure.ml;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.menudigital.infrastructure.storage.S3ClientFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -11,15 +9,14 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Descarga bajo demanda el JSON de popularidad por tenant desde S3 (clave con {@code {tenantId}}).
- * {@link com.menudigital.application.menu.RecommendMenuItemsUseCase} usa esos conteos para ordenar sugerencias.
+ * Descarga bajo demanda el artefacto de recomendaciones (binario {@code MREC}) por tenant desde S3.
+ * El ETL también publica un .joblib con el mismo contenido + metadatos ML para Python;
+ * la API solo consume el binario {@code MREC}.
  */
 @ApplicationScoped
 public class RecommendationModelLoader {
@@ -30,16 +27,14 @@ public class RecommendationModelLoader {
     @Inject
     S3ClientFactory s3ClientFactory;
 
-    @Inject
-    ObjectMapper objectMapper;
-
     @ConfigProperty(name = "recommendations.model.s3.bucket")
     Optional<String> modelBucket;
 
     /**
-     * Patrón de clave S3; debe incluir el literal {@code {tenantId}} (ej. {@code recommendations/{tenantId}/model.json}).
+     * Patrón de clave S3 del fichero binario; debe incluir el literal {@code {tenantId}}
+     * (ej. {@code recommendations/{tenantId}/model.bin}).
      */
-    @ConfigProperty(name = "recommendations.model.s3.key.pattern", defaultValue = "recommendations/{tenantId}/model.json")
+    @ConfigProperty(name = "recommendations.model.s3.key.pattern", defaultValue = "recommendations/{tenantId}/model.bin")
     Optional<String> keyPattern;
 
     private final ConcurrentHashMap<String, Map<String, Integer>> cache = new ConcurrentHashMap<>();
@@ -53,11 +48,11 @@ public class RecommendationModelLoader {
     }
 
     private String effectiveKeyPattern() {
-        return keyPattern.map(String::trim).filter(s -> !s.isEmpty()).orElse("recommendations/{tenantId}/model.json");
+        return keyPattern.map(String::trim).filter(s -> !s.isEmpty()).orElse("recommendations/{tenantId}/model.bin");
     }
 
     /**
-     * Popularidad por {@code itemId} para el tenant (vistas ITEM_VIEW agregadas en el ETL). Vacío si no hay objeto o JSON inválido.
+     * Popularidad por {@code itemId} (vistas ITEM_VIEW agregadas en el ETL). Vacío si no hay objeto o formato inválido.
      */
     public Optional<Map<String, Integer>> itemPopularityForTenant(String tenantId) {
         if (tenantId == null || tenantId.isBlank() || !configured()) {
@@ -88,7 +83,7 @@ public class RecommendationModelLoader {
                 LOG.warnf("Recommendation model object is empty: s3://%s/%s", bucket, key);
                 return Optional.empty();
             }
-            Map<String, Integer> map = parsePopularity(bytes);
+            Map<String, Integer> map = RecommendationArtifactBinaryCodec.decodeItemPopularity(bytes);
             if (map.isEmpty()) {
                 LOG.debugf("Recommendation model has no item_popularity entries: s3://%s/%s", bucket, key);
             } else {
@@ -102,29 +97,6 @@ public class RecommendationModelLoader {
         } catch (Exception e) {
             LOG.errorf(e, "Failed to load recommendation model for tenant %s from s3://%s/%s", tenantId, bucket, key);
             return Optional.empty();
-        }
-    }
-
-    private Map<String, Integer> parsePopularity(byte[] bytes) {
-        try {
-            JsonNode root = objectMapper.readTree(bytes);
-            JsonNode pop = root.get("item_popularity");
-            if (pop == null || !pop.isObject()) {
-                return Map.of();
-            }
-            Map<String, Integer> out = new HashMap<>();
-            pop.fields().forEachRemaining(e -> {
-                JsonNode v = e.getValue();
-                if (v.isIntegralNumber()) {
-                    out.put(e.getKey(), v.intValue());
-                } else if (v.isNumber()) {
-                    out.put(e.getKey(), (int) v.asLong());
-                }
-            });
-            return out.isEmpty() ? Map.of() : Collections.unmodifiableMap(out);
-        } catch (Exception e) {
-            LOG.errorf(e, "Invalid recommendation JSON (expected item_popularity object)");
-            return Map.of();
         }
     }
 }

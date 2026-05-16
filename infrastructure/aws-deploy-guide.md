@@ -306,7 +306,7 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 | *(no definir)* `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Preferir IAM role en EC2 |
 | *(no definir)* `DYNAMO_ENDPOINT`, `S3_ENDPOINT` | Vacío en AWS real (servicio gestionado) |
 | `S3_PUBLIC_URL` | URL pública base para enlazar imágenes (CloudFront o `https://bucket.s3...`) |
-| `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` | Patrón de clave con el literal `{tenantId}` (ej. `recommendations/{tenantId}/model.json`); por defecto en `docker-compose.prod.yml` |
+| `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` | Patrón de clave del fichero **binario MREC** (`.bin`) con el literal `{tenantId}` (ej. `recommendations/{tenantId}/model.bin`); por defecto en `docker-compose.prod.yml` |
 
 **Secretos:** el código soporta **AWS Secrets Manager** vía `DB_SECRET_ARN` (sin volcar la contraseña a `.env`). El rol IAM de la instancia API y el del worker ETL deben incluir `secretsmanager:GetSecretValue` sobre ese ARN (o un `resource` con comodín acotado). Alternativa clásica: Parameter Store / `ExecStartPre` que escriba `.env` en disco (cifrar volumen o evitar persistencia en claro).
 
@@ -314,7 +314,7 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 
 ## 12. Recomendaciones del menú
 
-El endpoint `POST /api/menu/{slug}/recommendations` prioriza ítems con más vistas (`ITEM_VIEW` agregadas por el job) si existe un JSON en S3 para el **tenant** del menú (`RECOMMENDATIONS_MODEL_S3_BUCKET` + patrón `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` con `{tenantId}`). Si no hay objeto o está vacío, las sugerencias siguen siendo aleatorias entre ítems disponibles fuera del carrito.
+El endpoint `POST /api/menu/{slug}/recommendations` prioriza ítems con más vistas si existe el artefacto **MREC** (`.bin`) en S3 para el **tenant** del menú (`RECOMMENDATIONS_MODEL_S3_BUCKET` + patrón con `{tenantId}`). El job también sube **joblib** (mismo prefijo, extensión `.joblib`) para uso en Python. Si no hay `.bin` o está vacío, las sugerencias siguen siendo aleatorias.
 
 ## 13. Entrenamiento del modelo en EC2 o Lambda (opcional)
 

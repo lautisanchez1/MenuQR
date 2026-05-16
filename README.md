@@ -99,7 +99,7 @@ This starts:
 ### Public (no auth)
 - `GET /api/menu/{slug}` - Get public menu
 - `POST /api/menu/{slug}/events` - Record analytics event
-- `POST /api/menu/{slug}/recommendations` - Cart suggestions (optional `menu_item_ids` in body; optional per-tenant popularity JSON in S3)
+- `POST /api/menu/{slug}/recommendations` - Cart suggestions (optional `menu_item_ids` in body; optional MREC `.bin` popularity in S3 per tenant; joblib `.joblib` for Python only)
 
 ### Auth
 - `POST /api/auth/register` - Register restaurant

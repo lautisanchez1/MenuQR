@@ -162,7 +162,7 @@ Crea dos buckets (o uno con prefijos) para subir `dist/` de cada frontend despu�
 ### 5.3 Bucket de modelos ML (recomendado)
 
 1. Crea otro bucket, ej. `menudigital-models-TU-ACCOUNT-ID` (sin mezclar con imágenes).
-2. El **worker ETL** subirá un JSON por tenant; la **API** necesita `GetObject` sobre las claves que coincidan con `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` (debe incluir `{tenantId}`).
+2. El **worker ETL** subirá por tenant un binario **MREC** (`.bin`, lo lee la API) y un **joblib** (`.joblib`); la **API** necesita `GetObject` sobre el patrón `.bin` (`RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` con `{tenantId}`).
 
 ---
 
@@ -360,7 +360,7 @@ S3_BUCKET=menudigital-images-TU-CUENTA
 DYNAMO_TABLE=menudigital-events
 # Opcional: bucket solo modelos (recomendado ≠ imágenes)
 # RECOMMENDATIONS_MODEL_S3_BUCKET=menudigital-models-TU-CUENTA
-# RECOMMENDATIONS_MODEL_S3_KEY_PATTERN=recommendations/{tenantId}/model.json
+# RECOMMENDATIONS_MODEL_S3_KEY_PATTERN=recommendations/{tenantId}/model.bin
 S3_PUBLIC_URL=https://TU-BUCKET.s3.us-east-1.amazonaws.com
 ```
 

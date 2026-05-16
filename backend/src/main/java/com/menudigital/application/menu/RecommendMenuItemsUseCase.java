@@ -17,7 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Sugerencias de hasta 3 ítems fuera del carrito. Si existe JSON de popularidad en S3 para el tenant
+ * Sugerencias de hasta 3 ítems fuera del carrito. Si existe el artefacto MREC (popularidad) en S3 para el tenant
  * ({@link RecommendationModelLoader}), se priorizan ítems con más vistas; si no, orden aleatorio.
  */
 @ApplicationScoped

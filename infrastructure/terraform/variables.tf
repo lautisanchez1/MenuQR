@@ -42,7 +42,7 @@ variable "recommendations_fanout_schedule_expression" {
 
 variable "recommendations_model_s3_key_pattern" {
   type        = string
-  default     = "recommendations/{tenantId}/model.json"
+  default     = "recommendations/{tenantId}/model.bin"
   description = "Patrón de clave S3 con {tenantId} para artefactos de recomendación (worker Lambda)."
 }
 

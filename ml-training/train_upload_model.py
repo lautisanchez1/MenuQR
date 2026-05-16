@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
-CLI: entrena artefactos de recomendaciones (popularidad por ítem desde DynamoDB) por tenant.
+CLI: entrena artefactos de recomendaciones por tenant (binario MREC + joblib en S3).
 
-Modo local (por defecto): procesa cada tenant y sube a S3.
-
-Modo fan-out SQS (TRAINING_USE_SQS_FANOUT=1 y TRAINING_JOB_QUEUE_URL): solo encola mensajes;
-el procesamiento lo hacen las Lambdas worker (ver infra Terraform + orchestrator_lambda / worker_lambda).
+Modo fan-out SQS (TRAINING_USE_SQS_FANOUT=1 + TRAINING_JOB_QUEUE_URL): solo encola mensajes.
 """
 from __future__ import annotations
 
@@ -56,11 +53,12 @@ def main() -> int:
 
     uploaded = 0
     for tenant_id in tenant_ids:
-        uri, nbytes, nitems = etl.upload_artifact_for_tenant(tenant_id, source_day)
-        print(f"OK: {uri} ({nbytes} bytes, {nitems} ítems con vistas)")
+        uri_bin, uri_jl, nbytes, nitems = etl.upload_artifact_for_tenant(tenant_id, source_day)
+        print(f"OK MREC: {uri_bin} ({nbytes} B, {nitems} ítems)")
+        print(f"OK joblib: {uri_jl}")
         uploaded += 1
 
-    print(f"Hecho: {uploaded} modelo(s), día fuente={source_day}")
+    print(f"Hecho: {uploaded} tenant(s), día fuente={source_day}")
     return 0
 
 

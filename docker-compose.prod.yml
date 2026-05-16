@@ -22,7 +22,7 @@ services:
       DYNAMO_ENDPOINT: ${DYNAMO_ENDPOINT:-}
       QUARKUS_PROFILE: ${QUARKUS_PROFILE:-prod}
       RECOMMENDATIONS_MODEL_S3_BUCKET: ${RECOMMENDATIONS_MODEL_S3_BUCKET:-}
-      RECOMMENDATIONS_MODEL_S3_KEY_PATTERN: ${RECOMMENDATIONS_MODEL_S3_KEY_PATTERN:-recommendations/{tenantId}/model.json}
+      RECOMMENDATIONS_MODEL_S3_KEY_PATTERN: ${RECOMMENDATIONS_MODEL_S3_KEY_PATTERN:-recommendations/{tenantId}/model.bin}
       # Sin claves estáticas: S3 y Dynamo usan el rol IAM de la instancia. Si inyectás vacío, Quarkus falla al arrancar.
     volumes:
       - ./privateKey.pem:/work/privateKey.pem:ro

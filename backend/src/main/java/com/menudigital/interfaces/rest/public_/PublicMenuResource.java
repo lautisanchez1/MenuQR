@@ -42,7 +42,7 @@ public class PublicMenuResource {
 
     @POST
     @Path("/{slug}/recommendations")
-    @Operation(summary = "Get recommendations", description = "Hasta 3 ítems sugeridos fuera del carrito. Si hay JSON de popularidad en S3 para el restaurante (tenant del menú), se priorizan ítems con más vistas; si no, orden aleatorio.")
+    @Operation(summary = "Get recommendations", description = "Hasta 3 ítems sugeridos fuera del carrito. Si hay artefacto binario MREC (popularidad) en S3 para el tenant del menú, se priorizan ítems con más vistas; si no, orden aleatorio.")
     public Response getRecommendations(@PathParam("slug") String slug, RecommendationRequestBody body) {
         if (body == null) {
             body = new RecommendationRequestBody();
