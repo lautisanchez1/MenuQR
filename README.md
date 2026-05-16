@@ -161,7 +161,7 @@ npm run build
 | DB_PASS | Database password | menudigital |
 | AWS_REGION | AWS region | us-east-1 |
 | S3_BUCKET | S3 bucket for images | menudigital-images |
-| DYNAMO_TABLE | DynamoDB table name | menudigital-events |
+| DYNAMO_TABLE | DynamoDB table name | menuqr-events |
 
 ### Frontend
 | Variable | Description | Default |

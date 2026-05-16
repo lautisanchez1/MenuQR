@@ -1,4 +1,3 @@
-# Gateway endpoints (sin NAT para S3 y DynamoDB)
 resource "aws_vpc_endpoint" "gateway_endpoints" {
   for_each = toset(local.gateway_endpoints)
 
@@ -8,7 +7,6 @@ resource "aws_vpc_endpoint" "gateway_endpoints" {
   route_table_ids   = local.route_table_ids
 }
 
-# Interface endpoints: SM, SQS, ECR (clientes en VPC — sin NAT para esos servicios)
 resource "aws_security_group" "vpc_interface_endpoints" {
   name_prefix = "${local.name_prefix}-vpce-"
   description = "Interface VPC endpoints (Secrets Manager, SQS, ECR)"
@@ -70,7 +68,7 @@ resource "aws_vpc_endpoint" "sqs" {
   }
 }
 
-# ECR: API (metadatos) + DKR (capas de imagen). GetAuthorizationToken sigue por internet/NAT.
+
 resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = module.vpc.vpc_id
   service_name        = local.ecr_api_endpoint_service

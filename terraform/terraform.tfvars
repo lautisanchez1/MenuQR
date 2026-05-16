@@ -17,3 +17,9 @@ backend = {
   image_tag = "latest"
   desired_count = 2
 }
+
+ml_training = {
+  schedule_expression = "cron(0 6 * * ? *)"
+  schedule_enables = true
+  sqs_batch_size = 10
+}

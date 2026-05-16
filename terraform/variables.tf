@@ -25,11 +25,10 @@ variable "backend" {
 }
 
 variable "ml_training" {
-  description = "Cron EventBridge → orquestador; SQS → worker"
   type = object({
-    schedule_expression = optional(string, "cron(0 6 * * ? *)")
-    schedule_enabled    = optional(bool, true)
-    sqs_batch_size      = optional(number, 10)
+    schedule_expression = string
+    schedule_enables = bool
+    sqs_batch_size = number
   })
-  default = {}
 }
+
