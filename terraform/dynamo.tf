@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "menuqr_events" {
-  name         = "menudigital-events"
+  name         = "menuqr-events"
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key  = "PK"

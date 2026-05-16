@@ -116,15 +116,15 @@ jdbc:postgresql://<rds-endpoint>:5432/menudigital
 
 Crear las tablas según [dynamo-tables.md](./dynamo-tables.md):
 
-- `menudigital-events` (solo PK/SK; sin LSI ni GSI).
+- `menuqr-events` (solo PK/SK; sin LSI ni GSI).
 
-Si teníais un LSI, GSI antiguos o un esquema distinto, hay que **recrear** `menudigital-events` (o nueva tabla + migración) para alinear el esquema.
+Si teníais un LSI, GSI antiguos o un esquema distinto, hay que **recrear** `menuqr-events` (o nueva tabla + migración) para alinear el esquema.
 
 Modo de facturación: **PAY_PER_REQUEST** (on-demand) suele bastar al inicio.
 
 **IAM en EC2:** la política debe permitir al menos `dynamodb:PutItem`, `dynamodb:Query`, `dynamodb:GetItem` sobre:
 
-- `arn:aws:dynamodb:<region>:<account>:table/menudigital-events`
+- `arn:aws:dynamodb:<region>:<account>:table/menuqr-events`
 
 En **producción**, no hace falta `DYNAMO_ENDPOINT` ni claves estáticas: el SDK usa **IAM instance profile** si `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` no están definidos para S3/Dynamo (el código ya usa `DefaultCredentialsProvider` cuando faltan claves).
 
@@ -186,7 +186,7 @@ Incluye imágenes, DynamoDB, **lectura** del modelo y, si usáis `DB_SECRET_ARN`
     {
       "Effect": "Allow",
       "Action": ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"],
-      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menuqr-events"
     },
     {
       "Effect": "Allow",
@@ -215,7 +215,7 @@ Lectura de eventos en DynamoDB y **escritura** de modelos en S3:
     {
       "Effect": "Allow",
       "Action": ["dynamodb:Query", "dynamodb:Scan", "dynamodb:GetItem", "dynamodb:PutItem"],
-      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+      "Resource": "arn:aws:dynamodb:<region>:<account>:table/menuqr-events"
     },
     {
       "Effect": "Allow",
@@ -317,7 +317,7 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 | `AWS_REGION` | Región (ej. `us-east-1`) |
 | `S3_BUCKET` | Bucket de **imágenes** del menú (distinto del de modelos en prod) |
 | `RECOMMENDATIONS_MODEL_S3_BUCKET` | Bucket de **modelos** (puede ser `menudigital-models-…`) |
-| `DYNAMO_TABLE` | Tabla de eventos (ej. `menudigital-events`) |
+| `DYNAMO_TABLE` | Tabla de eventos (ej. `menuqr-events`) |
 | *(no definir)* `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Preferir IAM role en EC2 |
 | *(no definir)* `DYNAMO_ENDPOINT`, `S3_ENDPOINT` | Vacío en AWS real (servicio gestionado) |
 | `S3_PUBLIC_URL` | URL pública base para enlazar imágenes (CloudFront o `https://bucket.s3...`) |

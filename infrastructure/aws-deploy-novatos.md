@@ -120,13 +120,13 @@ jdbc:postgresql://TU_ENDPOINT:5432/menudigital
 
 Las tablas deben coincidir con [dynamo-tables.md](./dynamo-tables.md). La forma más rápida es la **CLI** (en tu PC, con `aws configure` hecho).
 
-### 4.1 Tabla `menudigital-events`
+### 4.1 Tabla `menuqr-events`
 
 Ejecuta **un solo bloque** (puedes cambiar el nombre de tabla si quieres, pero luego usa el mismo en variables de entorno):
 
 ```bash
 export AWS_REGION=us-east-1
-export TABLE_EVENTS=menudigital-events
+export TABLE_EVENTS=menuqr-events
 
 aws dynamodb create-table \
   --table-name "$TABLE_EVENTS" \
@@ -357,7 +357,7 @@ DB_USER=EL_USUARIO_RDS
 DB_PASS=LA_CONTRASEÑA_RDS
 AWS_REGION=us-east-1
 S3_BUCKET=menudigital-images-TU-CUENTA
-DYNAMO_TABLE=menudigital-events
+DYNAMO_TABLE=menuqr-events
 # Opcional: bucket solo modelos (recomendado ≠ imágenes)
 # RECOMMENDATIONS_MODEL_S3_BUCKET=menudigital-models-TU-CUENTA
 # RECOMMENDATIONS_MODEL_S3_KEY_PATTERN=recommendations/{tenantId}/model.bin

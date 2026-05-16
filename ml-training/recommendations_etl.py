@@ -37,7 +37,7 @@ def aws_region() -> str:
 
 
 def events_table() -> str:
-    return os.environ.get("EVENTS_TABLE", "menudigital-events")
+    return os.environ.get("EVENTS_TABLE", "menuqr-events")
 
 
 def pk_attr() -> str:

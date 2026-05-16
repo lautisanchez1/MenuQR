@@ -26,7 +26,7 @@ Java **no** lee joblib (pickle); el binario MREC es el contrato estable entre ET
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export AWS_REGION=us-east-1
-export EVENTS_TABLE=menudigital-events
+export EVENTS_TABLE=menuqr-events
 export DB_URL=jdbc:postgresql://localhost:5432/menudigital
 export DB_USER=menudigital
 export DB_PASS=menudigital

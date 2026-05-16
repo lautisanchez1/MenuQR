@@ -23,7 +23,7 @@ public class DynamoAnalyticsRepositoryImpl implements AnalyticsRepository {
     @Inject
     DynamoDbClient dynamoDbClient;
     
-    @ConfigProperty(name = "aws.dynamodb.table", defaultValue = "menudigital-events")
+    @ConfigProperty(name = "aws.dynamodb.table", defaultValue = "menuqr-events")
     String tableName;
     
     @Override

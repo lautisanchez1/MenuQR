@@ -18,7 +18,7 @@ public class DynamoDBEventRepository {
     @Inject
     DynamoDbClient dynamoDb;
 
-    @ConfigProperty(name = "dynamodb.events.table", defaultValue = "menudigital-events")
+    @ConfigProperty(name = "dynamodb.events.table", defaultValue = "menuqr-events")
     String eventsTable;
 
     public List<Map<String, AttributeValue>> getEventsForTenant(String tenantId, Instant from, Instant to) {
