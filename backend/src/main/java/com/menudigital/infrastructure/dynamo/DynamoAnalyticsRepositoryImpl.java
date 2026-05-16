@@ -19,10 +19,7 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class DynamoAnalyticsRepositoryImpl implements AnalyticsRepository {
-    
-    /** LSI: misma partición que la tabla (`PK`); sort key alternativo para filtrar por tipo + tiempo. */
-    private static final String LSI_EVENT_TYPE = "LSI-EventType";
-    
+
     @Inject
     DynamoDbClient dynamoDbClient;
     
@@ -33,14 +30,12 @@ public class DynamoAnalyticsRepositoryImpl implements AnalyticsRepository {
     public void save(InteractionEvent event) {
         String pk = "TENANT#" + event.tenantId();
         String sk = "EVENT#" + event.timestamp().toString() + "#" + event.id();
-        String eventTypeTimestamp = event.eventType().name() + "#" + event.timestamp().toString();
-        
+
         Map<String, AttributeValue> item = new HashMap<>();
         item.put("PK", AttributeValue.builder().s(pk).build());
         item.put("SK", AttributeValue.builder().s(sk).build());
         item.put("tenantId", AttributeValue.builder().s(event.tenantId()).build());
         item.put("eventType", AttributeValue.builder().s(event.eventType().name()).build());
-        item.put("eventTypeTimestamp", AttributeValue.builder().s(eventTypeTimestamp).build());
         item.put("sessionId", AttributeValue.builder().s(event.sessionId()).build());
         item.put("timestamp", AttributeValue.builder().s(event.timestamp().toString()).build());
         
@@ -107,33 +102,9 @@ public class DynamoAnalyticsRepositoryImpl implements AnalyticsRepository {
     
     @Override
     public List<InteractionEvent> findByTenantTypeAndPeriod(String tenantId, EventType eventType, Instant from, Instant to) {
-        String pk = "TENANT#" + tenantId;
-        String eventTypeFrom = eventType.name() + "#" + from.toString();
-        String eventTypeTo = eventType.name() + "#" + to.toString() + "~";
-        
-        Map<String, AttributeValue> expressionValues = new HashMap<>();
-        expressionValues.put(":pk", AttributeValue.builder().s(pk).build());
-        expressionValues.put(":etFrom", AttributeValue.builder().s(eventTypeFrom).build());
-        expressionValues.put(":etTo", AttributeValue.builder().s(eventTypeTo).build());
-        
-        QueryRequest request = QueryRequest.builder()
-            .tableName(tableName)
-            .indexName(LSI_EVENT_TYPE)
-            .keyConditionExpression("PK = :pk AND eventTypeTimestamp BETWEEN :etFrom AND :etTo")
-            .expressionAttributeValues(expressionValues)
-            .build();
-        
-        try {
-            Log.debugf("Querying DynamoDB LSI for tenant %s, eventType %s from %s to %s", tenantId, eventType, from, to);
-            QueryResponse response = dynamoDbClient.query(request);
-            Log.debugf("Query returned %d items", response.items().size());
-            return response.items().stream()
-                .map(this::toInteractionEvent)
-                .toList();
-        } catch (Exception e) {
-            Log.errorf("Failed to query events from DynamoDB LSI: %s", e.getMessage(), e);
-            throw e;
-        }
+        return findByTenantAndPeriod(tenantId, from, to).stream()
+            .filter(e -> e.eventType() == eventType)
+            .toList();
     }
     
     private InteractionEvent toInteractionEvent(Map<String, AttributeValue> item) {

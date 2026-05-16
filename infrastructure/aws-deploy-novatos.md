@@ -134,16 +134,13 @@ aws dynamodb create-table \
   --attribute-definitions \
     AttributeName=PK,AttributeType=S \
     AttributeName=SK,AttributeType=S \
-    AttributeName=eventTypeTimestamp,AttributeType=S \
   --key-schema \
     AttributeName=PK,KeyType=HASH \
     AttributeName=SK,KeyType=RANGE \
-  --local-secondary-indexes \
-    '[{"IndexName":"LSI-EventType","KeySchema":[{"AttributeName":"PK","KeyType":"HASH"},{"AttributeName":"eventTypeTimestamp","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
   --region "$AWS_REGION"
 ```
 
-Si la tabla ya existe, el comando fallará; en ese caso puedes ignorar el error. El **LSI** solo se define al crear la tabla; si tenías GSI antiguos, recrea la tabla para este esquema.
+Si la tabla ya existe, el comando fallará; en ese caso puedes ignorar el error. Si tenías un LSI o GSI antiguos y quieres alinear el esquema a solo PK/SK, recrea la tabla (o nueva tabla + migración).
 
 ---
 
@@ -165,7 +162,7 @@ Crea dos buckets (o uno con prefijos) para subir `dist/` de cada frontend despu�
 ### 5.3 Bucket de modelos ML (recomendado)
 
 1. Crea otro bucket, ej. `menudigital-models-TU-ACCOUNT-ID` (sin mezclar con imágenes).
-2. El **worker ETL** subirá aquí el artefacto; la **API** solo necesita `GetObject` en la clave que pongas en `RECOMMENDATIONS_MODEL_S3_KEY`.
+2. El **worker ETL** subirá un JSON por tenant; la **API** necesita `GetObject` sobre las claves que coincidan con `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` (debe incluir `{tenantId}`).
 
 ---
 
@@ -363,7 +360,7 @@ S3_BUCKET=menudigital-images-TU-CUENTA
 DYNAMO_TABLE=menudigital-events
 # Opcional: bucket solo modelos (recomendado ≠ imágenes)
 # RECOMMENDATIONS_MODEL_S3_BUCKET=menudigital-models-TU-CUENTA
-# RECOMMENDATIONS_MODEL_S3_KEY=recommendations/v1/model.onnx
+# RECOMMENDATIONS_MODEL_S3_KEY_PATTERN=recommendations/{tenantId}/model.json
 S3_PUBLIC_URL=https://TU-BUCKET.s3.us-east-1.amazonaws.com
 ```
 

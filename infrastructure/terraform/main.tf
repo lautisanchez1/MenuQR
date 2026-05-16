@@ -267,17 +267,6 @@ resource "aws_dynamodb_table" "menuqr_events" {
     type = "S"
   }
 
-  attribute {
-    name = "eventTypeTimestamp"
-    type = "S"
-  }
-
-  local_secondary_index {
-    name            = "LSI-EventType"
-    range_key       = "eventTypeTimestamp"
-    projection_type = "ALL"
-  }
-
   tags = merge(local.common_tags, {
     Name = var.dynamodb_events_table_name
     Role = "menuqr-events"

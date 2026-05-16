@@ -25,7 +25,7 @@ variable "user_images_bucket_name" {
 
 variable "dynamodb_events_table_name" {
   type        = string
-  description = "DynamoDB table name for menu analytics events (PK/SK and LSI-EventType)."
+  description = "DynamoDB table name for menu analytics events (PK/SK only)."
 }
 
 variable "rds_engine_version" {

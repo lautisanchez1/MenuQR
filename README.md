@@ -99,7 +99,7 @@ This starts:
 ### Public (no auth)
 - `GET /api/menu/{slug}` - Get public menu
 - `POST /api/menu/{slug}/events` - Record analytics event
-- `POST /api/menu/{slug}/recommendations` - Cart suggestions (same Quarkus backend; optional `menu_item_ids` in body)
+- `POST /api/menu/{slug}/recommendations` - Cart suggestions (optional `menu_item_ids` in body; optional per-tenant popularity JSON in S3)
 
 ### Auth
 - `POST /api/auth/register` - Register restaurant

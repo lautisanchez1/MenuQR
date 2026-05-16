@@ -40,7 +40,7 @@ S3_ENDPOINT=
 DYNAMO_ENDPOINT=
 QUARKUS_PROFILE=prod
 RECOMMENDATIONS_MODEL_S3_BUCKET=menu-qr-ml-models
-RECOMMENDATIONS_MODEL_S3_KEY=recommendations/v1/model.joblib
+RECOMMENDATIONS_MODEL_S3_KEY_PATTERN=recommendations/{tenantId}/model.json
 ENVEOF
 chmod 600 .env
 

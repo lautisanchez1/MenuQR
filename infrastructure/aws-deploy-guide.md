@@ -34,7 +34,7 @@ Diseño alineado con **multi-AZ**, **API en Auto Scaling Group**, **worker ETL/M
      S3 imágenes / assets          ◄── Gateway VPC Endpoint
      S3 modelos ML                 ◄── Gateway VPC Endpoint (mismo tipo; bucket distinto)
 
-Las instancias **API** leen el artefacto de recomendaciones desde **S3 modelos** al arranque (`RecommendationModelLoader`).
+Las instancias **API** leen el JSON de popularidad por tenant desde **S3 modelos** bajo demanda (`RecommendationModelLoader`).
 ```
 
 **Capas:**
@@ -116,15 +116,15 @@ jdbc:postgresql://<rds-endpoint>:5432/menudigital
 
 Crear las tablas según [dynamo-tables.md](./dynamo-tables.md):
 
-- `menudigital-events` (PK/SK + LSI `LSI-EventType`; sin GSI).
+- `menudigital-events` (solo PK/SK; sin LSI ni GSI).
 
-El **LSI** solo se define **al crear** la tabla. Si teníais `GSI-EventType` o `GSI-Item`, hay que **recrear** `menudigital-events` (o nueva tabla + migración) para alinear el esquema.
+Si teníais un LSI, GSI antiguos o un esquema distinto, hay que **recrear** `menudigital-events` (o nueva tabla + migración) para alinear el esquema.
 
 Modo de facturación: **PAY_PER_REQUEST** (on-demand) suele bastar al inicio.
 
 **IAM en EC2:** la política debe permitir al menos `dynamodb:PutItem`, `dynamodb:Query`, `dynamodb:GetItem` sobre:
 
-- `arn:aws:dynamodb:<region>:<account>:table/menudigital-events` (incluye queries al LSI; no hay GSI en esta tabla)
+- `arn:aws:dynamodb:<region>:<account>:table/menudigital-events`
 
 En **producción**, no hace falta `DYNAMO_ENDPOINT` ni claves estáticas: el SDK usa **IAM instance profile** si `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` no están definidos para S3/Dynamo (el código ya usa `DefaultCredentialsProvider` cuando faltan claves).
 
@@ -160,14 +160,14 @@ Variables de build (ej. en CI):
 ### Bucket de modelos ML (recomendado en producción)
 
 - Bucket **dedicado**, ej. `menudigital-models-<account-id>`, para artefactos entrenados (ONNX, etc.).
-- El **worker ETL/ML** sube objetos (`PutObject`); las instancias **API** solo necesitan **`GetObject`** en la clave configurada (`RECOMMENDATIONS_MODEL_S3_KEY`).
+- El **worker ETL/ML** sube un JSON por tenant (`PutObject`); las instancias **API** necesitan **`GetObject`** sobre el prefijo/patrón de claves (p. ej. `recommendations/*`).
 - Así separás IAM (el batch puede escribir modelos; la API no debe poder sobrescribirlos salvo que lo queráis).
 
 ## 8. IAM — roles separados (API vs ETL/ML)
 
 ### 8.1 Rol para instancias del ASG (`menudigital-api-ec2`)
 
-Incluye imágenes, DynamoDB y **lectura** del modelo:
+Incluye imágenes, DynamoDB, **lectura** del modelo y, si usáis `DB_SECRET_ARN`, **lectura del secreto** de RDS:
 
 ```json
 {
@@ -187,6 +187,11 @@ Incluye imágenes, DynamoDB y **lectura** del modelo:
       "Effect": "Allow",
       "Action": ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"],
       "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:<region>:<account>:secret:<nombre-secreto-rds-*"
     }
   ]
 }
@@ -211,6 +216,11 @@ Lectura de eventos en DynamoDB y **escritura** de modelos en S3:
       "Effect": "Allow",
       "Action": ["dynamodb:Query", "dynamodb:Scan", "dynamodb:GetItem", "dynamodb:PutItem"],
       "Resource": "arn:aws:dynamodb:<region>:<account>:table/menudigital-events"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:<region>:<account>:secret:<nombre-secreto-rds-*"
     }
   ]
 }
@@ -286,7 +296,9 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 | Variable | Descripción |
 |----------|-------------|
 | `DB_URL` | JDBC a RDS |
-| `DB_USER` / `DB_PASS` | Credenciales RDS |
+| `DB_USER` / `DB_PASS` | Credenciales RDS (omitibles en EC2 si usas `DB_SECRET_ARN`) |
+| `DB_SECRET_ARN` | (Opcional) ARN del secreto en **Secrets Manager** con JSON tipo RDS (`username`, `password`; opcionalmente `host`, `port`, `dbname`). La API Quarkus y el job `train_upload_model.py` lo leen en tiempo de ejecución. |
+| `DB_SECRET_CACHE_SECONDS` | (Opcional) Segundos de caché en la API tras leer el secreto (por defecto `300`). |
 | `AWS_REGION` | Región (ej. `us-east-1`) |
 | `S3_BUCKET` | Bucket de **imágenes** del menú (distinto del de modelos en prod) |
 | `RECOMMENDATIONS_MODEL_S3_BUCKET` | Bucket de **modelos** (puede ser `menudigital-models-…`) |
@@ -294,22 +306,22 @@ Definid al menos (nombres alineados con `application.properties` y `docker-compo
 | *(no definir)* `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Preferir IAM role en EC2 |
 | *(no definir)* `DYNAMO_ENDPOINT`, `S3_ENDPOINT` | Vacío en AWS real (servicio gestionado) |
 | `S3_PUBLIC_URL` | URL pública base para enlazar imágenes (CloudFront o `https://bucket.s3...`) |
-| `RECOMMENDATIONS_MODEL_S3_KEY` | Clave del objeto (ej. `recommendations/v1/model.onnx`) dentro del bucket de modelos |
+| `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` | Patrón de clave con el literal `{tenantId}` (ej. `recommendations/{tenantId}/model.json`); por defecto en `docker-compose.prod.yml` |
 
-**Secretos:** usar **AWS Systems Manager Parameter Store** o **Secrets Manager** y volcar a `.env` en el arranque (systemd unit + `ExecStartPre`), en lugar de dejar contraseñas en texto plano en disco sin cifrar.
+**Secretos:** el código soporta **AWS Secrets Manager** vía `DB_SECRET_ARN` (sin volcar la contraseña a `.env`). El rol IAM de la instancia API y el del worker ETL deben incluir `secretsmanager:GetSecretValue` sobre ese ARN (o un `resource` con comodín acotado). Alternativa clásica: Parameter Store / `ExecStartPre` que escriba `.env` en disco (cifrar volumen o evitar persistencia en claro).
 
 **JWT:** rotación de claves implica redeploy coordinado; documentar el procedimiento.
 
 ## 12. Recomendaciones del menú
 
-El endpoint `POST /api/menu/{slug}/recommendations` está implementado **dentro de Quarkus** (sugerencias aleatorias entre ítems disponibles fuera del carrito). Opcionalmente puede definirse un objeto en S3 (`RECOMMENDATIONS_MODEL_S3_BUCKET` + `RECOMMENDATIONS_MODEL_S3_KEY`) para **descargar el artefacto al arranque** (p. ej. ONNX); la inferencia real aún no está cableada, pero los bytes quedan listos en `RecommendationModelLoader`.
+El endpoint `POST /api/menu/{slug}/recommendations` prioriza ítems con más vistas (`ITEM_VIEW` agregadas por el job) si existe un JSON en S3 para el **tenant** del menú (`RECOMMENDATIONS_MODEL_S3_BUCKET` + patrón `RECOMMENDATIONS_MODEL_S3_KEY_PATTERN` con `{tenantId}`). Si no hay objeto o está vacío, las sugerencias siguen siendo aleatorias entre ítems disponibles fuera del carrito.
 
 ## 13. Entrenamiento del modelo en EC2 (opcional)
 
-El script **`train_upload_model.py`** en [ml-segmentation/](./ml-segmentation/) lee eventos en DynamoDB y sube un artefacto de recomendaciones (joblib) al **bucket de modelos** S3; el rol ETL necesita `s3:PutObject` ahí.
+El script **`train_upload_model.py`** en [ml-training/](../ml-training/) lee eventos en DynamoDB, lista tenants desde **PostgreSQL** (`restaurants.id`) y sube **un JSON por tenant** al **bucket de modelos** S3; el rol ETL necesita `s3:PutObject`, `dynamodb:Query`, acceso a la base (`DB_URL` + `DB_USER`/`DB_PASS` o `DB_SECRET_ARN` como la API) y, si usáis secreto, `secretsmanager:GetSecretValue`.
 
 - Ejecutarlo con **cron** en la instancia EC2 (recomendado: IAM role, sin claves en el script).
-- Instrucciones: [ml-segmentation/README.md](./ml-segmentation/README.md).
+- Instrucciones: [ml-training/README.md](../ml-training/README.md).
 - **No** usar EventBridge ni Lambda para este flujo en el diseño objetivo del proyecto.
 
 ## 14. Route 53 y DNS

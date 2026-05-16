@@ -1,7 +1,8 @@
 package com.menudigital.infrastructure.ml;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.menudigital.infrastructure.storage.S3ClientFactory;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -10,39 +11,74 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Descarga opcional del artefacto de modelo (p. ej. ONNX) desde S3 al arranque.
- * La inferencia sigue siendo mock en {@link com.menudigital.application.menu.RecommendMenuItemsUseCase};
- * los bytes quedan disponibles para integrar ONNX Runtime u otra librería después.
+ * Descarga bajo demanda el JSON de popularidad por tenant desde S3 (clave con {@code {tenantId}}).
+ * {@link com.menudigital.application.menu.RecommendMenuItemsUseCase} usa esos conteos para ordenar sugerencias.
  */
 @ApplicationScoped
 public class RecommendationModelLoader {
 
     private static final Logger LOG = Logger.getLogger(RecommendationModelLoader.class);
+    private static final String TENANT_PLACEHOLDER = "{tenantId}";
 
     @Inject
     S3ClientFactory s3ClientFactory;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     @ConfigProperty(name = "recommendations.model.s3.bucket")
     Optional<String> modelBucket;
 
-    @ConfigProperty(name = "recommendations.model.s3.key")
-    Optional<String> modelKey;
+    /**
+     * Patrón de clave S3; debe incluir el literal {@code {tenantId}} (ej. {@code recommendations/{tenantId}/model.json}).
+     */
+    @ConfigProperty(name = "recommendations.model.s3.key.pattern", defaultValue = "recommendations/{tenantId}/model.json")
+    Optional<String> keyPattern;
 
-    private volatile byte[] modelBytes = new byte[0];
+    private final ConcurrentHashMap<String, Map<String, Integer>> cache = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    void loadFromS3IfConfigured() {
+    private boolean configured() {
         String bucket = modelBucket.map(String::trim).filter(s -> !s.isEmpty()).orElse(null);
-        String key = modelKey.map(String::trim).filter(s -> !s.isEmpty()).orElse(null);
-        if (bucket == null || key == null) {
-            LOG.debug("Recommendation model S3 not configured (set recommendations.model.s3.bucket and .key)");
-            return;
-        }
+        String pattern = effectiveKeyPattern();
+        return bucket != null
+            && pattern != null
+            && pattern.contains(TENANT_PLACEHOLDER);
+    }
 
+    private String effectiveKeyPattern() {
+        return keyPattern.map(String::trim).filter(s -> !s.isEmpty()).orElse("recommendations/{tenantId}/model.json");
+    }
+
+    /**
+     * Popularidad por {@code itemId} para el tenant (vistas ITEM_VIEW agregadas en el ETL). Vacío si no hay objeto o JSON inválido.
+     */
+    public Optional<Map<String, Integer>> itemPopularityForTenant(String tenantId) {
+        if (tenantId == null || tenantId.isBlank() || !configured()) {
+            return Optional.empty();
+        }
+        Map<String, Integer> cached = cache.get(tenantId);
+        if (cached != null) {
+            return Optional.of(cached);
+        }
+        Optional<Map<String, Integer>> loaded = loadPopularityForTenant(tenantId);
+        loaded.ifPresent(m -> cache.put(tenantId, m));
+        return loaded;
+    }
+
+    private Optional<Map<String, Integer>> loadPopularityForTenant(String tenantId) {
+        String bucket = modelBucket.map(String::trim).filter(s -> !s.isEmpty()).orElse(null);
+        String pattern = effectiveKeyPattern();
+        if (bucket == null || !pattern.contains(TENANT_PLACEHOLDER)) {
+            return Optional.empty();
+        }
+        String key = pattern.replace(TENANT_PLACEHOLDER, tenantId);
         try (S3Client s3 = s3ClientFactory.createClient()) {
             var response = s3.getObjectAsBytes(
                 GetObjectRequest.builder().bucket(bucket).key(key).build()
@@ -50,33 +86,45 @@ public class RecommendationModelLoader {
             byte[] bytes = response.asByteArray();
             if (bytes.length == 0) {
                 LOG.warnf("Recommendation model object is empty: s3://%s/%s", bucket, key);
-                return;
+                return Optional.empty();
             }
-            this.modelBytes = bytes;
-            LOG.infof("Recommendation model loaded from s3://%s/%s (%d bytes)", bucket, key, bytes.length);
+            Map<String, Integer> map = parsePopularity(bytes);
+            if (map.isEmpty()) {
+                LOG.debugf("Recommendation model has no item_popularity entries: s3://%s/%s", bucket, key);
+            } else {
+                LOG.infof("Loaded recommendation popularity for tenant %s from s3://%s/%s (%d items)",
+                    tenantId, bucket, key, map.size());
+            }
+            return Optional.of(map);
         } catch (NoSuchKeyException e) {
-            LOG.errorf(e, "Recommendation model not found: s3://%s/%s", bucket, key);
+            LOG.debugf("No recommendation model for tenant %s (s3://%s/%s)", tenantId, bucket, key);
+            return Optional.empty();
         } catch (Exception e) {
-            LOG.errorf(e, "Failed to load recommendation model from s3://%s/%s", bucket, key);
-        }
-    }
-
-    /** true si se cargaron bytes (incluido tras fallo parcial: solo true si length &gt; 0). */
-    public boolean isLoaded() {
-        return modelBytes.length > 0;
-    }
-
-    public int byteSize() {
-        return modelBytes.length;
-    }
-
-    /**
-     * Copia defensiva del buffer; vacío si no hay modelo cargado.
-     */
-    public Optional<byte[]> modelBytes() {
-        if (modelBytes.length == 0) {
+            LOG.errorf(e, "Failed to load recommendation model for tenant %s from s3://%s/%s", tenantId, bucket, key);
             return Optional.empty();
         }
-        return Optional.of(Arrays.copyOf(modelBytes, modelBytes.length));
+    }
+
+    private Map<String, Integer> parsePopularity(byte[] bytes) {
+        try {
+            JsonNode root = objectMapper.readTree(bytes);
+            JsonNode pop = root.get("item_popularity");
+            if (pop == null || !pop.isObject()) {
+                return Map.of();
+            }
+            Map<String, Integer> out = new HashMap<>();
+            pop.fields().forEachRemaining(e -> {
+                JsonNode v = e.getValue();
+                if (v.isIntegralNumber()) {
+                    out.put(e.getKey(), v.intValue());
+                } else if (v.isNumber()) {
+                    out.put(e.getKey(), (int) v.asLong());
+                }
+            });
+            return out.isEmpty() ? Map.of() : Collections.unmodifiableMap(out);
+        } catch (Exception e) {
+            LOG.errorf(e, "Invalid recommendation JSON (expected item_popularity object)");
+            return Map.of();
+        }
     }
 }

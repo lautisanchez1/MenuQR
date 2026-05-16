@@ -10,8 +10,10 @@ services:
       - "8080:8080"
     environment:
       DB_URL: ${DB_URL}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
+      DB_USER: ${DB_USER:-}
+      DB_PASS: ${DB_PASS:-}
+      DB_SECRET_ARN: ${DB_SECRET_ARN:-}
+      DB_SECRET_CACHE_SECONDS: ${DB_SECRET_CACHE_SECONDS:-300}
       AWS_REGION: ${AWS_REGION}
       S3_BUCKET: ${S3_BUCKET}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
@@ -20,7 +22,7 @@ services:
       DYNAMO_ENDPOINT: ${DYNAMO_ENDPOINT:-}
       QUARKUS_PROFILE: ${QUARKUS_PROFILE:-prod}
       RECOMMENDATIONS_MODEL_S3_BUCKET: ${RECOMMENDATIONS_MODEL_S3_BUCKET:-}
-      RECOMMENDATIONS_MODEL_S3_KEY: ${RECOMMENDATIONS_MODEL_S3_KEY:-}
+      RECOMMENDATIONS_MODEL_S3_KEY_PATTERN: ${RECOMMENDATIONS_MODEL_S3_KEY_PATTERN:-recommendations/{tenantId}/model.json}
       # Sin claves estáticas: S3 y Dynamo usan el rol IAM de la instancia. Si inyectás vacío, Quarkus falla al arrancar.
     volumes:
       - ./privateKey.pem:/work/privateKey.pem:ro
