@@ -280,11 +280,26 @@ En el repo hay un ejemplo listo para adaptar: [`infrastructure/launch-template/u
 
 **EC2 ETL + ML (fuera del ASG):** misma VPC, subred privada, **rol ETL**, sin registro en el ALB. Desplegar ahí el repo o solo `infrastructure/ml-segmentation` + scripts de entrenamiento; **cron** diario/semanal.
 
+### 9.3 ECS Fargate + ALB (Terraform)
+
+El módulo Terraform puede desplegar la API en **ECS Fargate** con un **ALB** (listener HTTP 80 → contenedor 8080), en lugar de (o además de) la EC2 del ASG.
+
+1. **Secrets Manager — JWT (obligatorio con Fargate):** dos secretos de tipo cadena con el **PEM en texto** (no JSON), uno para la clave pública y otro para la privada de firma (los mismos que usarías como `publicKey.pem` / `privateKey.pem` en el servidor).
+2. **tfvars:** `enable_backend_fargate = true`, `jwt_public_pem_secret_arn` y `jwt_private_pem_secret_arn` con los ARN completos. Para migrar desde EC2: `enable_backend_ec2 = false` cuando el servicio Fargate esté estable.
+3. **Imagen:** por defecto Terraform crea **ECR** `<vpc-name>-backend`; construí y subí la imagen (misma `Dockerfile.jvm` que en la sección 9.1). El `entrypoint.sh` del contenedor lee `JWT_PUBLIC_PEM` / `JWT_PRIVATE_PEM` (inyectadas por ECS desde Secrets Manager) y genera los ficheros que Quarkus espera.
+4. **Push y despliegue:** `docker tag … && docker push <ecr_url>:latest` y luego **ECS → servicio → actualizar** (nueva revisión de task) o `aws ecs update-service --force-new-deployment`.
+5. **Salidas Terraform:** `backend_fargate_alb_dns_name`, `backend_fargate_ecr_repository_url`, `backend_fargate_ecs_cluster_name`.
+6. **CPU/memoria y arquitectura:** `backend_fargate_cpu`, `backend_fargate_memory` (pares válidos según la [tabla Fargate](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html)), `backend_fargate_cpu_architecture` (`X86_64` o `ARM64`, alineado con el build de la imagen).
+7. **HTTPS:** el ALB de este stack solo expone **80**; podés añadir listener 443 con certificado **ACM** en una iteración posterior o delante un CloudFront.
+8. **KMS (CMK propia):** si los secretos JWT en Secrets Manager o el secreto maestro de RDS usan una **clave gestionada por el cliente**, rellená `backend_fargate_kms_customer_key_arns` con el/los ARN de esas CMK. Terraform concede `kms:Decrypt` y `kms:DescribeKey` al **rol de ejecución** ECS (para inyectar los PEM JWT) y al **rol de task** (para que la app lea el secreto de RDS). Si además cifráis el repositorio **ECR** con CMK, definí `backend_ecr_repository_kms_key_arn` (el repositorio pasa a `encryption_type = KMS` y el rol de ejecución incluye esa clave para el `pull` de la imagen). Los outputs `backend_fargate_ecs_execution_role_arn` y `backend_fargate_ecs_task_role_arn` sirven para añadir esos principals en la **key policy** de la CMK si no usáis el delegado amplio de la cuenta.
+
+El rol de la **task** incluye S3 (imágenes + modelos), DynamoDB sobre la tabla de eventos y lectura del secreto maestro de RDS (la app resuelve credenciales vía `DB_SECRET_ARN` como en EC2).
+
 ## 10. Application Load Balancer
 
-- Esquema **internet-facing**, en subredes públicas.
-- Target group: protocolo **HTTP**, puerto **80**, destino las instancias EC2 (nginx).
-- Health check: ruta **`/q/health`**, código 200, intervalos razonables.
+- Con **EC2 + nginx** delante: ALB **internet-facing** en subredes públicas; target group HTTP **80** hacia las instancias (nginx).
+- Con **Fargate (Terraform, sección 9.3):** el ALB creado por Terraform apunta directamente al **contenedor Quarkus en el puerto 8080** (sin nginx en ese path).
+- Health check: ruta **`/q/health`** o **`/q/health/ready`** (en el target group de Fargate del Terraform se usa **`/q/health/ready`**), código 200, intervalos razonables.
 - **HTTPS (443):** certificado en **ACM**, listener 443 → target group 80 (o terminación SSL en nginx si gestionáis cert allí).
 
 **Cabeceras:** Quarkus y proxies suelen necesitar confianza en `X-Forwarded-*` si generáis URLs absolutas; para este proyecto la mayoría de rutas son relativas vía ALB.

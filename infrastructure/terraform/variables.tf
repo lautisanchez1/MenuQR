@@ -99,3 +99,81 @@ variable "ec2_iam_instance_profile_name" {
   nullable    = true
   description = "IAM instance profile name for the EC2 (Learner Lab often uses LabRole as profile name). Set null to omit."
 }
+
+variable "enable_backend_ec2" {
+  type        = bool
+  default     = true
+  description = "Si false, no se crea la instancia EC2 de la API (p. ej. migración a Fargate)."
+}
+
+variable "enable_backend_fargate" {
+  type        = bool
+  default     = false
+  description = "Si true, despliega ECS Fargate + ALB para el backend Quarkus (imagen ECR o backend_container_image)."
+}
+
+variable "backend_create_ecr_repository" {
+  type        = bool
+  default     = true
+  description = "Crea repositorio ECR para la imagen del backend (deshabilitar si usas imagen externa en backend_container_image)."
+}
+
+variable "backend_container_image" {
+  type        = string
+  default     = ""
+  description = "URI completa de la imagen (ej. 123.dkr.ecr.region.amazonaws.com/repo:tag). Vacío = usar ECR creado por Terraform con tag latest."
+}
+
+variable "backend_fargate_cpu" {
+  type        = number
+  default     = 512
+  description = "CPU units Fargate (256, 512, 1024, ...)."
+}
+
+variable "backend_fargate_memory" {
+  type        = number
+  default     = 1024
+  description = "Memoria MB Fargate (compatible con backend_fargate_cpu; ver matriz AWS)."
+}
+
+variable "backend_fargate_desired_count" {
+  type        = number
+  default     = 1
+  description = "Número deseado de tasks del servicio ECS."
+}
+
+variable "backend_fargate_cpu_architecture" {
+  type        = string
+  default     = "X86_64"
+  description = "X86_64 o ARM64 (debe coincidir con el build de la imagen Docker)."
+}
+
+variable "backend_fargate_log_retention_days" {
+  type        = number
+  default     = 14
+  description = "Retención de logs CloudWatch del contenedor backend."
+}
+
+variable "jwt_public_pem_secret_arn" {
+  type        = string
+  default     = ""
+  description = "ARN del secreto con el PEM de la clave pública JWT (texto plano). Obligatorio si enable_backend_fargate=true."
+}
+
+variable "jwt_private_pem_secret_arn" {
+  type        = string
+  default     = ""
+  description = "ARN del secreto con el PEM de la clave privada de firma JWT (texto plano). Obligatorio si enable_backend_fargate=true."
+}
+
+variable "backend_fargate_kms_customer_key_arns" {
+  type        = list(string)
+  default     = []
+  description = "ARNs de CMK KMS para descifrar secretos cifrados con clave propia: se concede kms:Decrypt al rol de ejecución ECS (inyección JWT desde Secrets Manager) y al rol de task (p. ej. secreto maestro de RDS). Vacío si todos los secretos usan la clave gestionada por AWS."
+}
+
+variable "backend_ecr_repository_kms_key_arn" {
+  type        = string
+  default     = ""
+  description = "Opcional: ARN de CMK para cifrar el repositorio ECR del backend (encryption_type KMS). El rol de ejecución ECS recibe kms:Decrypt para poder hacer pull de la imagen."
+}

@@ -277,6 +277,8 @@ module "ec2_app" {
   source  = "terraform-aws-modules/ec2-instance/aws"
   version = "5.6.1"
 
+  count = var.enable_backend_ec2 ? 1 : 0
+
   name = "${module.network.vpc_name}-app-ec2"
 
   ami_ssm_parameter = local.ec2_ami_ssm_parameter

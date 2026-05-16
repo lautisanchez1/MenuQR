@@ -104,13 +104,38 @@ output "vpc_endpoint_dynamodb_id" {
 }
 
 output "ec2_app_instance_id" {
-  description = "Application EC2 instance ID (private subnet 172.30.7.0/24 with default vpc_cidr layout)"
-  value       = module.ec2_app.id
+  description = "Application EC2 instance ID (null si enable_backend_ec2=false)"
+  value       = var.enable_backend_ec2 ? module.ec2_app[0].id : null
 }
 
 output "ec2_app_private_ip" {
-  description = "Private IP of the application EC2"
-  value       = module.ec2_app.private_ip
+  description = "IP privada de la EC2 de la API (null si enable_backend_ec2=false)"
+  value       = var.enable_backend_ec2 ? module.ec2_app[0].private_ip : null
+}
+
+output "backend_fargate_alb_dns_name" {
+  description = "DNS del ALB del backend en Fargate (null si enable_backend_fargate=false)."
+  value       = length(aws_lb.backend) > 0 ? aws_lb.backend[0].dns_name : null
+}
+
+output "backend_fargate_ecs_cluster_name" {
+  description = "Nombre del cluster ECS del backend (null si enable_backend_fargate=false)."
+  value       = length(aws_ecs_cluster.backend) > 0 ? aws_ecs_cluster.backend[0].name : null
+}
+
+output "backend_fargate_ecr_repository_url" {
+  description = "URL del repositorio ECR del backend (null si Fargate desactivado o backend_create_ecr_repository=false)."
+  value       = length(aws_ecr_repository.backend) > 0 ? aws_ecr_repository.backend[0].repository_url : null
+}
+
+output "backend_fargate_ecs_execution_role_arn" {
+  description = "ARN del rol de ejecución ECS (inyección de secretos / pull ECR). Útil para la política de una CMK KMS (null si Fargate desactivado)."
+  value       = length(aws_iam_role.backend_ecs_exec) > 0 ? aws_iam_role.backend_ecs_exec[0].arn : null
+}
+
+output "backend_fargate_ecs_task_role_arn" {
+  description = "ARN del rol de task de la API (S3, DynamoDB, secreto RDS). Útil para la política de una CMK KMS (null si Fargate desactivado)."
+  value       = length(aws_iam_role.backend_ecs_task) > 0 ? aws_iam_role.backend_ecs_task[0].arn : null
 }
 
 # --- Fan-out Lambda + SQS (solo si enable_recommendations_fanout = true) ---
