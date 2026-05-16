@@ -134,7 +134,7 @@ module "security_group_ec2" {
     {
       rule        = "postgresql-tcp"
       cidr_blocks = var.vpc_cidr
-      description = "PostgreSQL within VPC (avoids EC2<->RDS SG egress cycle)"
+      description = "PostgreSQL within VPC"
     },
     {
       rule        = "http-80-tcp"
@@ -168,6 +168,59 @@ module "security_group_rds" {
   ]
 
   tags = merge(local.common_tags, { Name = "${module.network.vpc_name}-rds-sg" })
+}
+
+# ──────────────────────────────────────────────
+# ALB + Target Group + Listener
+# ──────────────────────────────────────────────
+resource "aws_lb" "app" {
+  name               = "${module.network.vpc_name}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [module.security_group_alb.security_group_id]
+  subnets            = module.network.subnet_ids_public
+
+  tags = merge(local.common_tags, {
+    Name = "${module.network.vpc_name}-alb"
+    Role = "alb"
+  })
+}
+
+resource "aws_lb_target_group" "app" {
+  name     = "${module.network.vpc_name}-app-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = module.network.vpc_id
+
+  health_check {
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${module.network.vpc_name}-app-tg"
+    Role = "target-group"
+  })
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.app.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${module.network.vpc_name}-http-listener"
+  })
 }
 
 module "rds" {
@@ -229,23 +282,17 @@ module "spa_bucket_users" {
   })
 }
 
-module "s3_ml_models" {
-  source = "./modules/s3-private-versioned-bucket"
+module "s3_private_buckets" {
+  source   = "./modules/s3-private-versioned-bucket"
+  for_each = {
+    ml-models   = var.ml_models_bucket_name
+    user-images = var.user_images_bucket_name
+  }
 
-  bucket_name = var.ml_models_bucket_name
-
-  tags = merge(local.common_tags, {
-    Role = "ml-models"
-  })
-}
-
-module "s3_user_images" {
-  source = "./modules/s3-private-versioned-bucket"
-
-  bucket_name = var.user_images_bucket_name
+  bucket_name = each.value
 
   tags = merge(local.common_tags, {
-    Role = "user-images"
+    Role = each.key
   })
 }
 
@@ -284,41 +331,84 @@ resource "aws_dynamodb_table" "menuqr_events" {
   })
 }
 
-module "ec2_app" {
-  source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "5.6.1"
+# ──────────────────────────────────────────────
+# Launch Template + Auto Scaling Group
+# ──────────────────────────────────────────────
+data "aws_ssm_parameter" "app_ami" {
+  name = local.ec2_ami_ssm_parameter
+}
 
-  name = "${module.network.vpc_name}-app-ec2"
+resource "aws_launch_template" "app" {
+  name_prefix   = "${module.network.vpc_name}-app-"
+  image_id      = data.aws_ssm_parameter.app_ami.value
+  instance_type = var.ec2_instance_type
+  key_name      = var.ec2_key_name
 
-  ami_ssm_parameter = local.ec2_ami_ssm_parameter
+  vpc_security_group_ids = [module.security_group_ec2.security_group_id]
 
-  instance_type               = var.ec2_instance_type
-  subnet_id                   = module.network.subnet_ids_ml[0]
-  vpc_security_group_ids      = [module.security_group_ec2.security_group_id]
-  associate_public_ip_address = false
-
-  key_name             = var.ec2_key_name
-  iam_instance_profile = var.ec2_iam_instance_profile_name
-
-  monitoring = false
-
-  metadata_options = {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = "1"
+  iam_instance_profile {
+    name = var.ec2_iam_instance_profile_name
   }
 
-  root_block_device = [
-    {
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
       volume_type           = "gp3"
       volume_size           = 30
       encrypted             = true
       delete_on_termination = true
     }
-  ]
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(local.common_tags, {
+      Name = "${module.network.vpc_name}-app-ec2"
+      Role = "app-ec2"
+    })
+  }
+
+  # Meta-argumento: crea el nuevo template antes de destruir el anterior
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tags = merge(local.common_tags, {
-    Name = "${module.network.vpc_name}-app-ec2"
-    Role = "app-ec2"
+    Name = "${module.network.vpc_name}-app-lt"
+    Role = "launch-template"
   })
+}
+
+resource "aws_autoscaling_group" "app" {
+  name_prefix         = "${module.network.vpc_name}-app-"
+  min_size            = var.asg_min_size
+  desired_capacity    = var.asg_desired_capacity
+  max_size            = var.asg_max_size
+  vpc_zone_identifier = module.network.subnet_ids_backend
+  target_group_arns   = [aws_lb_target_group.app.arn]
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 120
+
+  tag {
+    key                 = "Name"
+    value               = "${module.network.vpc_name}-app-ec2"
+    propagate_at_launch = true
+  }
+
+  # Meta-argumento: espera a que el ALB listener esté listo
+  depends_on = [aws_lb_listener.http]
 }
