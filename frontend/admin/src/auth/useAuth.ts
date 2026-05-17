@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { authApi, type RegisterRequest, type LoginRequest } from '@/shared/api/authApi';
+import { authApi, type RegisterRequest } from '@/shared/api/authApi';
 import { buildHostedUiLogoutUrl } from './cognito';
 
 interface JwtPayload {
@@ -47,29 +47,16 @@ export function useAuth() {
     };
   });
 
-  const login = useCallback(async (data: LoginRequest) => {
-    const response = await authApi.login(data);
+  const register = useCallback(async (data: RegisterRequest, idToken: string) => {
+    const response = await authApi.register(data, idToken);
     localStorage.setItem('md_token', response.token);
-    setAuthState({
+    setAuthState((current) => ({
       token: response.token,
       tenantId: response.tenantId,
       restaurantName: response.restaurantName,
       isAuthenticated: true,
-      federatedEmail: authState.federatedEmail,
-    });
-    return response;
-  }, [authState.federatedEmail]);
-
-  const register = useCallback(async (data: RegisterRequest) => {
-    const response = await authApi.register(data);
-    localStorage.setItem('md_token', response.token);
-    setAuthState({
-      token: response.token,
-      tenantId: response.tenantId,
-      restaurantName: response.restaurantName,
-      isAuthenticated: true,
-      federatedEmail: data.ownerEmail,
-    });
+      federatedEmail: current.federatedEmail,
+    }));
     return response;
   }, []);
 
@@ -129,7 +116,6 @@ export function useAuth() {
 
   return {
     ...authState,
-    login,
     register,
     setFederatedEmail,
     clearFederatedEmail,

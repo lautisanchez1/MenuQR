@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './useAuth';
+
+const SESSION_KEY_ID_TOKEN = 'md_cognito_id_token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +22,13 @@ export function RegisterPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Without a Cognito ID token in sessionStorage we can't register — bounce to login.
+    if (!sessionStorage.getItem(SESSION_KEY_ID_TOKEN)) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
 
   const generateSlug = (name: string) => {
     return name
@@ -81,22 +90,32 @@ export function RegisterPage() {
       if (!federatedEmail) {
         throw new Error('Missing federated email');
       }
+      const idToken = sessionStorage.getItem(SESSION_KEY_ID_TOKEN);
+      if (!idToken) {
+        navigate('/login', { replace: true });
+        return;
+      }
 
       await register({
         restaurantName: formData.restaurantName,
         slug: formData.slug,
-        ownerEmail: federatedEmail,
-      });
+      }, idToken);
+      sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
       clearFederatedEmail();
       navigate('/admin');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { code?: string } } };
-        if (axiosError.response?.data?.code === 'SLUG_EXISTS') {
+        const axiosError = err as { response?: { status?: number; data?: { code?: string } } };
+        const code = axiosError.response?.data?.code;
+        if (code === 'INVALID_TOKEN' || axiosError.response?.status === 401) {
+          sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
+          toast({ title: 'Session Expired', description: 'Please sign in again', variant: 'destructive' });
+          navigate('/login', { replace: true });
+        } else if (code === 'SLUG_EXISTS') {
           setErrors({ slug: 'This URL slug is already taken. Please choose another.' });
           toast({ title: 'Registration Failed', description: 'This URL slug is already taken', variant: 'destructive' });
-        } else if (axiosError.response?.data?.code === 'EMAIL_EXISTS') {
+        } else if (code === 'EMAIL_EXISTS') {
           setErrors({ ownerEmail: 'This email is already registered. Please sign in instead.' });
           toast({ title: 'Registration Failed', description: 'This email is already registered', variant: 'destructive' });
         } else {

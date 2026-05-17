@@ -7,6 +7,8 @@ import { useAuth } from './useAuth';
 import { exchangeCodeForTokens, parseCallbackQuery } from './cognito';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+const SESSION_KEY_ID_TOKEN = 'md_cognito_id_token';
+
 interface CognitoTokenClaims {
   email?: string;
 }
@@ -52,20 +54,24 @@ export function AuthCallbackPage() {
       }
 
       setFederatedEmail(email);
+      sessionStorage.setItem(SESSION_KEY_ID_TOKEN, tokens.idToken);
       window.history.replaceState({}, document.title, window.location.pathname);
 
       try {
-        const response = await authApi.login({ email });
+        const response = await authApi.login(tokens.idToken);
         localStorage.setItem('md_token', response.token);
+        sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
         setStatus('Signed in successfully');
         navigate('/admin', { replace: true });
       } catch (authError) {
-        if (isAxiosError(authError) && authError.response?.status === 401) {
+        if (isAxiosError(authError) && authError.response?.status === 401 && authError.response?.data?.code === 'UNKNOWN_USER') {
+          // No tenant exists yet — keep the id_token in sessionStorage for the register flow.
           setStatus('Account setup required');
           navigate('/register', { replace: true });
           return;
         }
 
+        sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
         setError('Unable to complete sign-in right now');
         setStatus('Sign-in failed');
       }

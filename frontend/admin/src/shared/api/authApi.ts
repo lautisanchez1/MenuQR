@@ -4,21 +4,20 @@ import type { AuthResponse } from '../types';
 export interface RegisterRequest {
   restaurantName: string;
   slug: string;
-  ownerEmail: string;
 }
 
-export interface LoginRequest {
-  email: string;
+function bearerHeader(idToken: string) {
+  return { headers: { Authorization: `Bearer ${idToken}` } };
 }
 
 export const authApi = {
-  register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/register', data);
+  register: async (data: RegisterRequest, idToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/api/auth/register', data, bearerHeader(idToken));
     return response.data;
   },
 
-  login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/login', data);
+  login: async (idToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/api/auth/login', null, bearerHeader(idToken));
     return response.data;
   },
 };

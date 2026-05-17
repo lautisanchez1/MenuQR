@@ -10,6 +10,12 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  // Auth endpoints carry a Cognito Bearer token set by the caller; do not overwrite.
+  const requestUrl = String(config.url ?? '');
+  if (requestUrl.startsWith('/api/auth/')) {
+    return config;
+  }
+
   const token = localStorage.getItem('md_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
