@@ -9,9 +9,11 @@ Además, se recompilan datos de interacción que se usan para analitica y entren
 
 ## Arquitectura
 
+
+
 ## CI (GitHub Actions)
 
-Workflow [`.github/workflows/terraform.yml`](../.github/workflows/terraform.yml):
+Workflow [`.github/workflows/terraform.yml`](.github/workflows/terraform.yml):
 
 | Job | Cuándo | Qué hace |
 |-----|--------|----------|
@@ -22,40 +24,28 @@ Secrets en GitHub (**Settings → Secrets → Actions**), típico con credencial
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
-- `AWS_SESSION_TOKEN` (requerido con LabRole / STS)
+- `AWS_SESSION_TOKEN`
 
-Sin secrets, el job **Plan** termina en verde con un mensaje informativo; **Init & validate** siempre corre.
+Sin secrets o con credenciales expiradas, el job **Plan** ejecuta `aws sts get-caller-identity`; si falla, termina en verde con mensaje informativo. **Init & validate** siempre corre.
 
 ## Requerimientos
 
-
 - Terraform ≥ 1.8.5, AWS CLI, Docker, Maven, Node.js
 - Cuenta AWS con rol **LabRole**
-- Credenciales: `aws sts get-caller-identity`
 
 Aclaración: Los scripts fueron probados en Linux, aunque deberian funcionar tambien en MAC o en Windows mediante el uso de WSL
 
 ## Scripts (`terraform/scripts/`)
 
-| Script | Uso |
-|--------|-----|
+| Script | Uso                                                             |
+|--------|-----------------------------------------------------------------|
 | `deploy.sh` | **Completo:** Lambdas → `terraform apply` → backend → frontends |
-| `deploy-backend.sh` | Solo ECR + ECS (infra ya aplicada) |
-| `deploy-frontends.sh` | Solo build Vite + sync S3 |
-| `terraform-init-remote.sh` | Bootstrap state remoto S3 + `terraform init` |
+| `deploy-backend.sh` | Buildea imagen y sube a ECS                                     |
+| `deploy-frontends.sh` | Build Vite + sync S3                                            |
 
-El empaquetado de Lambdas sigue en `ml-training/scripts/build_lambda_dists.sh` (lo invoca `deploy.sh`).
+El empaquetado de Lambdas ocurre en `ml-training/scripts/build_lambda_dists.sh` (lo invoca `deploy.sh`).
 
 ## Instrucciones de Ejecución
-
-### Todo en uno (recomendado)
-
-```bash
-bash terraform/scripts/deploy.sh
-```
-
-Variables útiles: `SKIP_TERRAFORM_APPLY=1` (solo app), `TERRAFORM_PLAN_ONLY=1` (solo plan), `IMAGE_TAG`, `SKIP_MVN`, `SKIP_INSTALL`.
-
 ### Paso a paso
 
 ```bash
@@ -65,6 +55,11 @@ bash terraform/scripts/deploy-backend.sh
 bash terraform/scripts/deploy-frontends.sh
 ```
 
+### Alternativa - 
+
+```bash
+bash terraform/scripts/deploy.sh
+```
 ### Outputs útiles
 
 ```bash
@@ -72,6 +67,24 @@ terraform output backend_api_url
 terraform output frontend_admin_website_url
 terraform output frontend_menu_website_url
 ```
+
+### Justificación del uso de scripts Bash
+
+La subida de imagenes a ECR y de archivos de los sitios web a los S3 se realiza mediante scripts. 
+Si bien esto tecnicamente podria hacerse mediante terraform, no lo consideramos una buena practica, puesto que Terraform está 
+orientado al aprovisionamiento y gestión declarativa de infraestructura, no al build ni despliegue de artefactos de aplicación.
+
+Separar estas responsabilidades permite:
+
+- Mantener los terraform apply idempotentes y más predecibles;
+- Evitar que cambios frecuentes de código generen cambios innecesarios en la infraestructura;
+- Desacoplar el ciclo de vida de la aplicación del de la infraestructura;
+
+Por este motivo, Terraform se utiliza únicamente para crear y configurar la infraestructura necesaria, mientras que los scripts Bash se encargan de:
+
+- Construir y subir imágenes Docker a ECR;
+- Empaquetar y desplegar Lambdas;
+- Compilar y sincronizar los frontends en los buckets S3 correspondientes;
 
 ## Terraform
 
@@ -96,7 +109,6 @@ terraform output frontend_menu_website_url
 |---------|-------------------|
 | `slice` | `locals.tf` — subredes / AZs |
 | `cidrsubnets` | `locals.tf` — CIDRs por capa |
-| `lower` / `replace` | `locals.tf` — `name_prefix` desde `var.project_name` |
 | `toset` | `s3.tf`, `vpc_endpoint.tf` — `for_each` |
 | `jsonencode` | `ecs.tf` — task definition (contenedor) |
 | `coalesce` | `modules/python-lambda` — VPC SG |

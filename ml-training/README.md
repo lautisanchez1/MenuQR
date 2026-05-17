@@ -27,7 +27,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export AWS_REGION=us-east-1
 export EVENTS_TABLE=menuqr-events
-export DB_URL=jdbc:postgresql://localhost:5432/menudigital
+export DB_URL=jdbc:postgresql://localhost:5432/menuqr_db
 export DB_USER=menudigital
 export DB_PASS=menudigital
 export RECOMMENDATIONS_MODEL_S3_BUCKET=tu-bucket-ml

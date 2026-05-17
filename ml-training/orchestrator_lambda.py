@@ -93,7 +93,7 @@ def _postgres_connect_kwargs() -> dict[str, Any] | None:
         host = (os.environ.get("POSTGRES_HOST") or "").strip() or None
         port_s = (os.environ.get("POSTGRES_PORT") or "5432").strip()
         port = int(port_s) if port_s.isdigit() else 5432
-        dbname = (os.environ.get("POSTGRES_DB") or "menudigital").strip()
+        dbname = (os.environ.get("POSTGRES_DB") or "menuqr_db").strip()
 
     if not host or not dbname or not user:
         return None

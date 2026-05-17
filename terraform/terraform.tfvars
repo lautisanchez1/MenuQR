@@ -8,7 +8,7 @@ user_website_name  = "menuqr-user"
 admin_website_name = "menuqr-admin"
 
 db = {
-  name     = "menudigital"
+  name     = "menuqr_db"
   username = "menuqr_admin"
 }
 

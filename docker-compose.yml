@@ -3,7 +3,7 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-menudigital}
+      POSTGRES_DB: ${POSTGRES_DB:-menuqr_db}
       POSTGRES_USER: ${POSTGRES_USER:-menudigital}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-menudigital}
     ports:
@@ -91,7 +91,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-menudigital}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-menuqr_db}
       DB_USER: ${POSTGRES_USER:-menudigital}
       DB_PASS: ${POSTGRES_PASSWORD:-menudigital}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
