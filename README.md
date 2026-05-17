@@ -112,7 +112,7 @@ This starts:
 - Admin frontend on port 5174
 - Menu frontend on port 5173
 
-### 3. Access the Application
+### 4. Access the Application
 
 - **Admin Panel**: http://localhost:5174
 - **Public Menu**: http://localhost:5173/menu/{slug}
