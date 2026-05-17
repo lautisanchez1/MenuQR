@@ -11,23 +11,6 @@ Además, se recompilan datos de interacción que se usan para analitica y entren
 
 
 
-## CI (GitHub Actions)
-
-Workflow [`.github/workflows/terraform.yml`](.github/workflows/terraform.yml):
-
-| Job | Cuándo | Qué hace |
-|-----|--------|----------|
-| **Init & validate** | Siempre en PR/push | `build_lambda_dists.sh` → `terraform fmt -check` → `init -backend=false` → `validate` |
-| **Plan (AWS)** | Si hay secrets AWS en el repo | `plan -var-file=terraform.tfvars` y sube artefacto `plan.txt` |
-
-Secrets en GitHub (**Settings → Secrets → Actions**), típico con credenciales temporales de AWS Academy:
-
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_SESSION_TOKEN`
-
-Sin secrets o con credenciales expiradas, el job **Plan** ejecuta `aws sts get-caller-identity`; si falla, termina en verde con mensaje informativo. **Init & validate** siempre corre.
-
 ## Requerimientos
 
 - Terraform ≥ 1.8.5, AWS CLI, Docker, Maven, Node.js

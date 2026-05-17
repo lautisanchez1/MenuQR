@@ -26,7 +26,6 @@ resource "aws_security_group" "vpc_interface_endpoints" {
 
 resource "aws_vpc_security_group_ingress_rule" "vpce_from_db_client" {
   security_group_id            = aws_security_group.vpc_interface_endpoints.id
-  description                  = "HTTPS desde Lambda orquestador (db_client)"
   from_port                    = 443
   to_port                      = 443
   ip_protocol                  = "tcp"
@@ -35,11 +34,18 @@ resource "aws_vpc_security_group_ingress_rule" "vpce_from_db_client" {
 
 resource "aws_vpc_security_group_ingress_rule" "vpce_from_fargate" {
   security_group_id            = aws_security_group.vpc_interface_endpoints.id
-  description                  = "HTTPS desde ECS Fargate"
   from_port                    = 443
   to_port                      = 443
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.fargate.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "vpce_from_rds_proxy" {
+  security_group_id            = aws_security_group.vpc_interface_endpoints.id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.proxy.id
 }
 
 resource "aws_vpc_endpoint" "secretsmanager" {

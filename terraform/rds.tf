@@ -56,6 +56,15 @@ resource "aws_vpc_security_group_egress_rule" "proxy_to_db" {
   referenced_security_group_id = aws_security_group.db.id
 }
 
+resource "aws_vpc_security_group_egress_rule" "proxy_to_secretsmanager_vpce" {
+  security_group_id            = aws_security_group.proxy.id
+  description                  = "Credenciales RDS en Secrets Manager (VPC endpoint)"
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.vpc_interface_endpoints.id
+}
+
 
 resource "aws_db_instance" "db" {
   identifier = "${local.name_prefix}-postgres"
@@ -95,7 +104,8 @@ module "rds_proxy" {
   role_arn        = data.aws_iam_role.lab_role.arn
   require_tls     = true
 
-  vpc_subnet_ids         = module.vpc.private_subnets
+  # Misma capa que RDS (database subnets); los clientes en private_subnets llegan por SG.
+  vpc_subnet_ids         = module.vpc.database_subnets
   vpc_security_group_ids = [aws_security_group.proxy.id]
 
   engine_family = "POSTGRESQL"
