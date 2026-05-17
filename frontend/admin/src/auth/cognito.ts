@@ -7,7 +7,13 @@ const STORAGE_KEY_STATE = 'md_cognito_pkce_state';
 
 export type SocialProvider = 'Google' | 'Facebook';
 
-export const socialProviders: SocialProvider[] = ['Google', 'Facebook'];
+// Comma-separated list of federated providers the deploy has wired up at the
+// Cognito side. Empty (the default) means native email/password only — which is
+// what a fresh deploy with no Google OAuth credentials looks like.
+export const socialProviders: SocialProvider[] = (import.meta.env.VITE_COGNITO_ENABLED_PROVIDERS || '')
+  .split(',')
+  .map((s: string) => s.trim())
+  .filter((s: string): s is SocialProvider => s === 'Google' || s === 'Facebook');
 
 export interface CognitoTokens {
   idToken: string;
@@ -21,27 +27,11 @@ export function canUseCognitoHostedUi() {
 }
 
 export async function buildHostedUiUrl(provider: SocialProvider) {
-  if (!canUseCognitoHostedUi()) {
-    throw new Error('Cognito hosted UI is not configured');
-  }
+  return buildAuthorizeUrl({ identityProvider: provider });
+}
 
-  const verifier = generateRandomString(32);
-  const challenge = base64UrlEncode(await sha256(verifier));
-  const state = generateRandomString(16);
-
-  sessionStorage.setItem(STORAGE_KEY_VERIFIER, verifier);
-  sessionStorage.setItem(STORAGE_KEY_STATE, state);
-
-  const url = new URL('/oauth2/authorize', hostedUiBaseUrl);
-  url.searchParams.set('client_id', clientId!);
-  url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'openid email profile');
-  url.searchParams.set('redirect_uri', redirectUri);
-  url.searchParams.set('identity_provider', provider);
-  url.searchParams.set('code_challenge_method', 'S256');
-  url.searchParams.set('code_challenge', challenge);
-  url.searchParams.set('state', state);
-  return url.toString();
+export async function buildHostedUiNativeUrl() {
+  return buildAuthorizeUrl({});
 }
 
 export function buildHostedUiLogoutUrl() {
@@ -110,6 +100,32 @@ export function parseCallbackQuery(search: string) {
     error: params.get('error'),
     errorDescription: params.get('error_description'),
   };
+}
+
+async function buildAuthorizeUrl(opts: { identityProvider?: SocialProvider }) {
+  if (!canUseCognitoHostedUi()) {
+    throw new Error('Cognito hosted UI is not configured');
+  }
+
+  const verifier = generateRandomString(32);
+  const challenge = base64UrlEncode(await sha256(verifier));
+  const state = generateRandomString(16);
+
+  sessionStorage.setItem(STORAGE_KEY_VERIFIER, verifier);
+  sessionStorage.setItem(STORAGE_KEY_STATE, state);
+
+  const url = new URL('/oauth2/authorize', hostedUiBaseUrl);
+  url.searchParams.set('client_id', clientId!);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('code_challenge_method', 'S256');
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('state', state);
+  if (opts.identityProvider) {
+    url.searchParams.set('identity_provider', opts.identityProvider);
+  }
+  return url.toString();
 }
 
 function generateRandomString(byteLength: number): string {

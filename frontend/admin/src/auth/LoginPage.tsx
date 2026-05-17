@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { buildHostedUiUrl, canUseCognitoHostedUi, socialProviders } from './cognito';
+import { buildHostedUiUrl, buildHostedUiNativeUrl, canUseCognitoHostedUi, socialProviders } from './cognito';
 
 export function LoginPage() {
-  const startLogin = async (provider: 'Google' | 'Facebook') => {
+  const startSocial = async (provider: 'Google' | 'Facebook') => {
     window.location.assign(await buildHostedUiUrl(provider));
+  };
+
+  const startNative = async () => {
+    window.location.assign(await buildHostedUiNativeUrl());
   };
 
   return (
@@ -14,11 +18,21 @@ export function LoginPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">MenuDigital</CardTitle>
           <CardDescription className="text-center">
-            Sign in with a federated provider to manage your restaurant menu
+            Sign in to manage your restaurant menu
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
+            <Button
+              type="button"
+              className="w-full"
+              variant="outline"
+              disabled={!canUseCognitoHostedUi()}
+              onClick={startNative}
+            >
+              Sign in with email
+            </Button>
+
             {socialProviders.map((provider) => (
               <Button
                 key={provider}
@@ -26,7 +40,7 @@ export function LoginPage() {
                 className="w-full"
                 variant="outline"
                 disabled={!canUseCognitoHostedUi()}
-                onClick={() => startLogin(provider)}
+                onClick={() => startSocial(provider)}
               >
                 Continue with {provider}
               </Button>
@@ -34,7 +48,7 @@ export function LoginPage() {
           </div>
           {!canUseCognitoHostedUi() && (
             <p className="text-xs text-muted-foreground text-center">
-              Configure Cognito hosted UI to enable federated sign-in.
+              Configure Cognito hosted UI to enable sign-in.
             </p>
           )}
           <p className="text-sm text-muted-foreground text-center">

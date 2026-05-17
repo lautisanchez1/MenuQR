@@ -16,10 +16,8 @@ resource "aws_cognito_user_pool" "this" {
 
     mfa_configuration = "OFF"
 
-    # Social-only: disable Cognito-native self-signup. Federated users
-    # (Google/Facebook) are still auto-created by the federation flow.
     admin_create_user_config {
-        allow_admin_create_user_only = true
+        allow_admin_create_user_only = false
     }
 
     dynamic "schema" {
