@@ -8,6 +8,7 @@ import com.menudigital.domain.menu.MenuItem;
 import com.menudigital.domain.menu.MenuSection;
 import com.menudigital.domain.tenant.Restaurant;
 import com.menudigital.domain.tenant.RestaurantRepository;
+import com.menudigital.infrastructure.storage.MenuImageUrls;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -28,6 +29,9 @@ import java.util.UUID;
 @SecurityRequirement(name = "jwt")
 public class MenuAdminResource {
     
+    @Inject
+    MenuImageUrls menuImageUrls;
+
     @Inject
     GetAdminMenuUseCase getAdminMenuUseCase;
     
@@ -202,7 +206,7 @@ public class MenuAdminResource {
             item.getName(),
             item.getDescription(),
             item.getPrice().toPlainString(),
-            item.getImageUrl(),
+            menuImageUrls.toApiPath(item.getImageUrl()),
             item.isAvailable(),
             item.getDietaryTags(),
             item.getDisplayOrder()

@@ -2,6 +2,7 @@ import { Leaf, Wheat, Milk, Salad } from 'lucide-react';
 import type { MenuItem } from '@/shared/types';
 import { useTheme } from '@/lib/ThemeContext';
 import { formatCurrency } from '@/lib/utils';
+import { imageSrc } from '@/shared/lib/imageUrl';
 
 const dietaryIcons: Record<string, { Icon: typeof Leaf; color: string }> = {
   VEGAN: { Icon: Leaf, color: '#22c55e' },
@@ -88,7 +89,7 @@ export function MenuItemCard({ item, onClick, onQuickAdd }: MenuItemCardProps) {
           {item.imageUrl ? (
             <div className="h-[72px] w-[72px] overflow-hidden rounded-xl">
               <img
-                src={item.imageUrl}
+                src={imageSrc(item.imageUrl)}
                 alt={item.name}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               />

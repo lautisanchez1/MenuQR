@@ -2,6 +2,7 @@ package com.menudigital.application.menu;
 
 import com.menudigital.application.menu.dto.MenuDTOs.UpdateItemCommand;
 import com.menudigital.application.shared.TenantContext;
+import com.menudigital.infrastructure.storage.MenuImageUrls;
 import com.menudigital.domain.menu.MenuItem;
 import com.menudigital.domain.menu.MenuRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,6 +20,9 @@ public class UpdateMenuItemUseCase {
     
     @Inject
     TenantContext tenantContext;
+
+    @Inject
+    MenuImageUrls menuImageUrls;
     
     @Transactional
     public void execute(UUID itemId, UpdateItemCommand command) {
@@ -37,7 +41,7 @@ public class UpdateMenuItemUseCase {
         item.setName(command.name());
         item.setDescription(command.description());
         item.setPrice(command.price());
-        item.setImageUrl(command.imageUrl());
+        item.setImageUrl(menuImageUrls.normalizeForStorage(command.imageUrl()));
         item.setDietaryTags(command.dietaryTags() != null ? command.dietaryTags() : new HashSet<>());
         item.setDisplayOrder(command.displayOrder());
         

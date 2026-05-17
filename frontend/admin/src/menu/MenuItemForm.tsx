@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { menuApi } from '@/shared/api/menuApi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { MenuItem, MenuSection, DietaryTag, CreateItemRequest } from '@/shared/types';
+import { imageSrc, normalizeImageUrlForForm } from '@/shared/lib/imageUrl';
 
 interface MenuItemFormProps {
   open: boolean;
@@ -35,6 +36,8 @@ export function MenuItemForm({ open, onClose, item, sections, defaultSectionId }
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const prevOpenRef = useRef(false);
+  const prevItemIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState<CreateItemRequest>({
     sectionId: '',
     name: '',
@@ -45,30 +48,54 @@ export function MenuItemForm({ open, onClose, item, sections, defaultSectionId }
     displayOrder: 0,
   });
 
+  // Solo reiniciar al abrir el diálogo o al cambiar de ítem (no cuando `sections` se refresca tras el menú).
   useEffect(() => {
-    if (item) {
-      setFormData({
-        sectionId: item.sectionId,
-        name: item.name,
-        description: item.description || '',
-        price: item.price,
-        imageUrl: item.imageUrl || '',
-        dietaryTags: item.dietaryTags,
-        displayOrder: item.displayOrder,
-      });
-    } else {
-      setFormData({
-        sectionId: defaultSectionId || sections[0]?.id || '',
-        name: '',
-        description: '',
-        price: '',
-        imageUrl: '',
-        dietaryTags: [],
-        displayOrder: 0,
-      });
+    const itemId = item?.id ?? null;
+    const justOpened = open && !prevOpenRef.current;
+    const itemChanged = open && itemId !== prevItemIdRef.current;
+
+    if (!open) {
+      prevOpenRef.current = false;
+      prevItemIdRef.current = null;
+      return;
     }
-    setErrors({});
-  }, [item, defaultSectionId, sections, open]);
+
+    if (justOpened || itemChanged) {
+      if (item) {
+        setFormData({
+          sectionId: item.sectionId,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          imageUrl: normalizeImageUrlForForm(item.imageUrl || ''),
+          dietaryTags: item.dietaryTags,
+          displayOrder: item.displayOrder,
+        });
+      } else {
+        setFormData({
+          sectionId: defaultSectionId || sections[0]?.id || '',
+          name: '',
+          description: '',
+          price: '',
+          imageUrl: '',
+          dietaryTags: [],
+          displayOrder: 0,
+        });
+      }
+      setErrors({});
+    }
+
+    prevOpenRef.current = open;
+    prevItemIdRef.current = itemId;
+  }, [open, item, defaultSectionId, sections]);
+
+  // Si las secciones cargan después de abrir "Add Item", rellenar sectionId sin borrar la imagen subida.
+  useEffect(() => {
+    if (!open || item) return;
+    const fallbackSectionId = defaultSectionId || sections[0]?.id || '';
+    if (!fallbackSectionId) return;
+    setFormData((prev) => (prev.sectionId ? prev : { ...prev, sectionId: fallbackSectionId }));
+  }, [open, item, defaultSectionId, sections]);
 
   const createMutation = useMutation({
     mutationFn: menuApi.createItem,
@@ -155,7 +182,7 @@ export function MenuItemForm({ open, onClose, item, sections, defaultSectionId }
     setUploading(true);
     try {
       const url = await menuApi.uploadImage(file);
-      setFormData((prev) => ({ ...prev, imageUrl: url }));
+      setFormData((prev) => ({ ...prev, imageUrl: normalizeImageUrlForForm(url) }));
       setErrors(prev => {
         const { image, ...rest } = prev;
         return rest;
@@ -318,7 +345,7 @@ export function MenuItemForm({ open, onClose, item, sections, defaultSectionId }
             {errors.image && <p className="text-xs text-destructive">{errors.image}</p>}
             {formData.imageUrl && (
               <img
-                src={formData.imageUrl}
+                src={imageSrc(formData.imageUrl)}
                 alt="Preview"
                 className="w-full h-32 object-cover rounded mt-2"
               />

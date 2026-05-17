@@ -10,6 +10,7 @@ import { Pencil, Trash2, UtensilsCrossed, Settings2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { MenuItem, DietaryTag } from '@/shared/types';
+import { imageSrc } from '@/shared/lib/imageUrl';
 
 interface ItemTableProps {
   items: MenuItem[];
@@ -78,7 +79,7 @@ export function ItemTable({ items, onEdit }: ItemTableProps) {
               <TableCell>
                 {item.imageUrl ? (
                   <img
-                    src={item.imageUrl}
+                    src={imageSrc(item.imageUrl)}
                     alt={item.name}
                     className="w-12 h-12 object-cover rounded"
                   />

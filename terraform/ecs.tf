@@ -51,7 +51,6 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "DB_SECRET_CACHE_SECONDS", value = "300" },
       { name = "AWS_REGION", value = data.aws_region.current.region },
       { name = "S3_BUCKET", value = local.images_bucket_name },
-      { name = "S3_PUBLIC_URL", value = local.s3_public_url },
       { name = "DYNAMO_TABLE", value = aws_dynamodb_table.menuqr_events.name },
       { name = "QUARKUS_PROFILE", value = "prod" },
       { name = "RECOMMENDATIONS_MODEL_S3_BUCKET", value = local.ml_bucket_name },

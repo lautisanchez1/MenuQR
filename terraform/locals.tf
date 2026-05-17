@@ -19,7 +19,6 @@ locals {
 
   images_bucket_name = module.s3-private-buckets[var.images_bucket_name].bucket_name
   ml_bucket_name     = module.s3-private-buckets[var.ml_bucket_name].bucket_name
-  s3_public_url      = "https://${local.images_bucket_name}.s3.${data.aws_region.current.region}.amazonaws.com"
 
   db_jdbc_url = "jdbc:postgresql://${module.rds_proxy.proxy_endpoint}:${aws_db_instance.db.port}/${var.db.name}"
 

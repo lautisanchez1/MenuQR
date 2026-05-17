@@ -3,6 +3,7 @@ import { menuApi } from '@/shared/api/menuApi';
 import { formatCurrency, getSessionId, cn } from '@/lib/utils';
 import { UtensilsCrossed } from 'lucide-react';
 import type { MenuItem, DietaryTag } from '@/shared/types';
+import { imageSrc } from '@/shared/lib/imageUrl';
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -50,7 +51,7 @@ export function MenuItemCard({ item, slug }: MenuItemCardProps) {
               </div>
             )}
             <img
-              src={item.imageUrl}
+              src={imageSrc(item.imageUrl)}
               alt={item.name}
               className={cn(
                 'w-full h-full object-cover transition-opacity',

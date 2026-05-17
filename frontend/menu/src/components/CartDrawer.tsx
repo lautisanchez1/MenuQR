@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Receipt } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
 import { useOrder } from '@/lib/OrderContext';
+import { imageSrc } from '@/shared/lib/imageUrl';
 import { formatCurrency } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { menuApi } from '@/shared/api/menuApi';
@@ -333,7 +334,7 @@ export function CartDrawer({ qrToken, slug, menuItems = [], onClose }: CartDrawe
                    >
                      {rec.imageUrl && (
                        <div className="w-full h-24 mb-2 rounded-lg overflow-hidden shrink-0 bg-white/50">
-                          <img src={rec.imageUrl} alt={rec.name} className="w-full h-full object-cover mix-blend-multiply" />
+                          <img src={imageSrc(rec.imageUrl)} alt={rec.name} className="w-full h-full object-cover mix-blend-multiply" />
                        </div>
                      )}
                      <div className="flex-1 flex flex-col">

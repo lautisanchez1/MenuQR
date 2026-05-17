@@ -4,6 +4,7 @@ import type { MenuItem, Modifier } from '@/shared/types';
 import { useTheme } from '@/lib/ThemeContext';
 import { useOrder } from '@/lib/OrderContext';
 import { formatCurrency, getGuestName, setGuestName } from '@/lib/utils';
+import { imageSrc } from '@/shared/lib/imageUrl';
 
 interface ItemModalProps {
   item: MenuItem;
@@ -116,7 +117,7 @@ export function ItemModal({ item, qrToken, onClose }: ItemModalProps) {
         {item.imageUrl && (
           <div className="relative h-44 w-full flex-shrink-0 sm:h-52">
             <img
-              src={item.imageUrl}
+              src={imageSrc(item.imageUrl)}
               alt={item.name}
               className="h-full w-full object-cover"
             />
