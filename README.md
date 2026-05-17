@@ -118,6 +118,22 @@ Los modelos se guardan en S3, y los usa el backend para dar recomendaciones de p
 Cabe aclarar que, en caso de no tener cargado un modelo aún, el backend genera recomendaciones aleatorias. 
 Asimismo, si un modelo se entrena apenas se levanta la aplicación, no habra datos suficientes para que el modelo pueda ser util. Aun así, el modelo será generado y almacenado en el bucket correspondiente.
 
+Las recomendaciones se muestran en el modal que se ve antes de confirmar la orden.
+
+Se puede invocar la Lambda orquestradora fuera del momento del cron para verificar la carga de modelos usando la consola de AWS
+
+
+```bash
+aws lambda invoke \
+  --function-name menuqr-ml-orchestrator \
+  --region us-east-1 \
+  --payload '{}' \
+  --cli-binary-format raw-in-base64-out \
+  /tmp/orchestrator-out.json
+
+cat /tmp/orchestrator-out.json
+```
+
 ## Terraform
 
 ### Módulos propios

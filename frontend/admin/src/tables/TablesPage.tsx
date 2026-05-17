@@ -11,6 +11,7 @@ import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
 import { QrCode, Plus, RefreshCw, Trash2, Users, Copy, Check, Download, Eye, Clock, Timer, LayoutGrid, List } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
+import { copyTextToClipboard } from '../shared/lib/clipboard';
 import { FloorPlanView } from './FloorPlanView';
 
 export function TablesPage() {
@@ -106,15 +107,29 @@ export function TablesPage() {
   };
 
   const getTableUrl = (table: Table) => {
-    const menuOrigin = (import.meta.env.VITE_MENU_URL as string | undefined)?.replace(/\/$/, '')
-      ?? window.location.origin.replace(':5174', ':5173');
+    const configured = (import.meta.env.VITE_MENU_URL as string | undefined)?.replace(/\/$/, '');
+    const menuOrigin =
+      configured ||
+      (import.meta.env.DEV
+        ? window.location.origin.replace(':5174', ':5173')
+        : window.location.origin);
     return `${menuOrigin}/table/${table.qrCodeToken}`;
   };
 
-  const copyQrUrl = (table: Table) => {
-    navigator.clipboard.writeText(getTableUrl(table));
-    setCopiedId(table.id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyQrUrl = async (table: Table) => {
+    const url = getTableUrl(table);
+    const ok = await copyTextToClipboard(url);
+    if (ok) {
+      setCopiedId(table.id);
+      setTimeout(() => setCopiedId(null), 2000);
+      toast({ title: 'URL copiada', description: 'Enlace del menú copiado al portapapeles', variant: 'success' });
+    } else {
+      toast({
+        title: 'No se pudo copiar',
+        description: 'Copiá la URL manualmente desde el cuadro de abajo.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const downloadQr = () => {
@@ -523,8 +538,12 @@ export function TablesPage() {
                   className="flex-1"
                   onClick={() => copyQrUrl(qrTable)}
                 >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy URL
+                  {copiedId === qrTable.id ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
+                  {copiedId === qrTable.id ? 'Copied!' : 'Copy URL'}
                 </Button>
                 <Button
                   className="flex-1"
