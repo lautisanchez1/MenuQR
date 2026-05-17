@@ -9,14 +9,14 @@ Además, se recompilan datos de interacción que se usan para analitica y entren
 
 ## Arquitectura
 
-
+![Diagrama de arquitectura AWS](./Architecture.png)
 
 ## Requerimientos
 
 - Terraform ≥ 1.8.5, AWS CLI, Docker, Maven, Node.js
 - Cuenta AWS con rol **LabRole**
 
-Aclaración: Los scripts fueron probados en Linux, aunque deberian funcionar tambien en MAC o en Windows mediante el uso de WSL
+Aclaración: Los scripts fueron probados en Linux, aunque deberian funcionar también en MAC o en Windows mediante el uso de WSL
 
 ## Scripts (`terraform/scripts/`)
 
