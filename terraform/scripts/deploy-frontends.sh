@@ -40,14 +40,22 @@ MENU_BUCKET="$(terraform -chdir="${TF_DIR}" output -raw frontend_menu_s3_bucket)
 ADMIN_SITE="$(terraform -chdir="${TF_DIR}" output -raw frontend_admin_website_url)"
 MENU_SITE="$(terraform -chdir="${TF_DIR}" output -raw frontend_menu_website_url)"
 
+COGNITO_USER_POOL_ID="$(terraform -chdir="${TF_DIR}" output -raw cognito_user_pool_id 2>/dev/null || true)"
+COGNITO_CLIENT_ID="$(terraform -chdir="${TF_DIR}" output -raw cognito_user_pool_client_id 2>/dev/null || true)"
+
 API_URL="${API_URL%/}"
 MENU_URL="${MENU_URL%/}"
+ADMIN_SITE="${ADMIN_SITE%/}"
 
 echo "    Región:       ${AWS_REGION}"
 echo "    VITE_API_URL: ${API_URL}"
 echo "    VITE_MENU_URL (admin): ${MENU_URL}"
 echo "    Bucket admin: s3://${ADMIN_BUCKET}"
 echo "    Bucket menú:  s3://${MENU_BUCKET}"
+if [[ -n "${COGNITO_USER_POOL_ID}" && -n "${COGNITO_CLIENT_ID}" ]]; then
+  echo "    Cognito pool: ${COGNITO_USER_POOL_ID}"
+  echo "    Cognito client: ${COGNITO_CLIENT_ID}"
+fi
 
 build_and_sync() {
   local name="$1"
@@ -76,7 +84,15 @@ build_and_sync() {
     --delete
 }
 
-build_and_sync "Admin" "${ADMIN_DIR}" "${ADMIN_BUCKET}" "VITE_MENU_URL=${MENU_URL}"
+ADMIN_COGNITO_ENV=()
+if [[ -n "${COGNITO_USER_POOL_ID}" && -n "${COGNITO_CLIENT_ID}" ]]; then
+  ADMIN_COGNITO_ENV=(
+    "VITE_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}"
+    "VITE_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}"
+  )
+fi
+
+build_and_sync "Admin" "${ADMIN_DIR}" "${ADMIN_BUCKET}" "VITE_MENU_URL=${MENU_URL}" "${ADMIN_COGNITO_ENV[@]}"
 build_and_sync "Menú público" "${MENU_DIR}" "${MENU_BUCKET}"
 
 echo ""

@@ -45,3 +45,15 @@ output "backend_images_s3_bucket" {
 output "backend_ml_s3_bucket" {
   value = local.ml_bucket_name
 }
+
+output "cognito_user_pool_id" {
+  value       = aws_cognito_user_pool.main.id
+}
+
+output "cognito_user_pool_client_id" {
+  value       = aws_cognito_user_pool_client.admin_spa.id
+}
+
+output "cognito_issuer_url" {
+  value       = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.main.id}"
+}

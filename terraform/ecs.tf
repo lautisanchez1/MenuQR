@@ -54,6 +54,8 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "DYNAMO_TABLE", value = aws_dynamodb_table.menuqr_events.name },
       { name = "QUARKUS_PROFILE", value = "prod" },
       { name = "RECOMMENDATIONS_MODEL_S3_BUCKET", value = local.ml_bucket_name },
+      { name = "COGNITO_ISSUER_URL", value = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.main.id}" },
+      { name = "COGNITO_CLIENT_ID", value = aws_cognito_user_pool_client.admin_spa.id },
     ]
   }])
 }
