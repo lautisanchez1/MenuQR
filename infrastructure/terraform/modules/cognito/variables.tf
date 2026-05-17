@@ -26,6 +26,11 @@ variable "enable_hosted_ui" {
   default     = false
 }
 
+variable "domain_prefix" {
+  type        = string
+  description = "Cognito hosted UI domain prefix"
+}
+
 variable "custom_attributes" {
   type = list(object({
     name       = string

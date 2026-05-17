@@ -1,3 +1,5 @@
+data "aws_region" "current" {}
+
 resource "aws_cognito_user_pool" "this" {
     name = "${var.project_name}-${var.environment}-users"
 
@@ -42,17 +44,45 @@ resource "aws_cognito_user_pool" "this" {
     tags = var.tags
 }
 
+resource "aws_cognito_identity_provider" "external" {
+  for_each = var.identity_providers
+
+  user_pool_id  = aws_cognito_user_pool.this.id
+  provider_name = each.value.provider_name
+  provider_type = each.value.provider_type
+
+  provider_details = {
+    client_id        = each.value.client_id
+    client_secret    = each.value.client_secret
+    authorize_scopes = join(" ", each.value.authorize_scopes)
+  }
+
+  attribute_mapping = each.value.attribute_mapping
+}
+
+resource "aws_cognito_user_pool_domain" "this" {
+  count = var.enable_hosted_ui ? 1 : 0
+
+  domain       = var.domain_prefix
+  user_pool_id = aws_cognito_user_pool.this.id
+}
+
 resource "aws_cognito_user_pool_client" "spa" {
   name         = "${var.project_name}-${var.environment}-spa"
   user_pool_id = aws_cognito_user_pool.this.id
 
   generate_secret = false
 
-  explicit_auth_flows = [
-    "ALLOW_USER_PASSWORD_AUTH",   # simple username/password (easier for testing)
-    "ALLOW_USER_SRP_AUTH",        # keep SRP available too
-    "ALLOW_REFRESH_TOKEN_AUTH",
-  ]
+  supported_identity_providers = concat(
+    ["COGNITO"],
+    [for provider in aws_cognito_identity_provider.external : provider.provider_name]
+  )
+
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["implicit"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  callback_urls                       = var.callback_urls
+  logout_urls                          = var.logout_urls
 
   access_token_validity  = 60
   id_token_validity      = 60

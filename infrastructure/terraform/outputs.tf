@@ -112,3 +112,23 @@ output "ec2_app_private_ip" {
   description = "Private IP of the application EC2"
   value       = module.ec2_app.private_ip
 }
+
+output "cognito_user_pool_id" {
+  description = "Cognito user pool ID"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_user_pool_client_id" {
+  description = "Cognito user pool app client ID"
+  value       = module.cognito.user_pool_client_id
+}
+
+output "cognito_hosted_ui_base_url" {
+  description = "Cognito hosted UI base URL"
+  value       = module.cognito.hosted_ui_base_url
+}
+
+output "cognito_issuer_url" {
+  description = "Cognito issuer URL"
+  value       = module.cognito.issuer_url
+}

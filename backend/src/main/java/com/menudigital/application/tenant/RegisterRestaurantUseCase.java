@@ -41,9 +41,8 @@ public class RegisterRestaurantUseCase {
             command.ownerEmail()
         );
         restaurantRepository.save(restaurant);
-        
-        String passwordHash = hashPassword(command.password());
-        var user = userRepository.createUser(command.ownerEmail(), passwordHash, restaurant.getId().value());
+
+        var user = userRepository.createUser(command.ownerEmail(), restaurant.getId().value());
         
         String token = generateToken(user.id.toString(), restaurant.getId().toString(), restaurant.getName());
         
@@ -52,10 +51,6 @@ public class RegisterRestaurantUseCase {
             restaurant.getId().toString(),
             restaurant.getName()
         );
-    }
-    
-    private String hashPassword(String password) {
-        return org.mindrot.jbcrypt.BCrypt.hashpw(password, org.mindrot.jbcrypt.BCrypt.gensalt());
     }
     
     private String generateToken(String userId, String tenantId, String restaurantName) {

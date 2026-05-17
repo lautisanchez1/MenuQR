@@ -14,8 +14,5 @@ public record RegisterRestaurantCommand(
     String slug,
     
     @NotBlank @Email
-    String ownerEmail,
-    
-    @NotBlank @Size(min = 8, max = 100)
-    String password
+    String ownerEmail
 ) {}

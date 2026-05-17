@@ -1,3 +1,15 @@
+variable "project_name" {
+  type        = string
+  description = "Project name prefix for resource names"
+  default     = "MenuQR"
+}
+
+variable "environment" {
+  type        = string
+  description = "Deployment environment name"
+  default     = "dev"
+}
+
 variable "vpc_cidr" {
   type        = string
   description = "VPC CIDR block"
@@ -73,4 +85,40 @@ variable "ec2_iam_instance_profile_name" {
   type        = string
   nullable    = true
   description = "IAM instance profile name for the EC2 (Learner Lab often uses LabRole as profile name). Set null to omit."
+}
+
+variable "cognito_callback_urls" {
+  type        = list(string)
+  description = "Allowed Cognito callback URLs"
+  default     = ["http://localhost:5174/auth/callback"]
+}
+
+variable "cognito_logout_urls" {
+  type        = list(string)
+  description = "Allowed Cognito logout URLs"
+  default     = ["http://localhost:5174/login", "http://localhost:5174/register"]
+}
+
+variable "cognito_google_client_id" {
+  type        = string
+  description = "Google OAuth client ID for Cognito federation"
+  default     = ""
+}
+
+variable "cognito_google_client_secret" {
+  type        = string
+  description = "Google OAuth client secret for Cognito federation"
+  default     = ""
+}
+
+variable "cognito_facebook_client_id" {
+  type        = string
+  description = "Facebook OAuth app ID for Cognito federation"
+  default     = ""
+}
+
+variable "cognito_facebook_client_secret" {
+  type        = string
+  description = "Facebook OAuth app secret for Cognito federation"
+  default     = ""
 }

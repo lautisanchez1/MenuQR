@@ -16,7 +16,6 @@ import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import org.mindrot.jbcrypt.BCrypt;
 
 import java.time.Duration;
 
@@ -58,26 +57,20 @@ public class AuthResource {
     
     @POST
     @Path("/login")
-    @Operation(summary = "Login", description = "Authenticates a user and returns a JWT token")
+    @Operation(summary = "Login", description = "Completes federated auth and returns a JWT token")
     @APIResponse(responseCode = "200", description = "Login successful",
         content = @Content(schema = @Schema(implementation = LoginResponse.class)))
-    @APIResponse(responseCode = "401", description = "Invalid credentials")
+    @APIResponse(responseCode = "401", description = "Unknown user")
     public Response login(@Valid LoginRequest request) {
         var userOpt = userRepository.findByEmail(request.email());
         
         if (userOpt.isEmpty()) {
             return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("INVALID_CREDENTIALS", "Invalid email or password"))
+                .entity(new ErrorResponse("UNKNOWN_USER", "No restaurant account exists for this email"))
                 .build();
         }
         
         var user = userOpt.get();
-        
-        if (!BCrypt.checkpw(request.password(), user.passwordHash)) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("INVALID_CREDENTIALS", "Invalid email or password"))
-                .build();
-        }
         
         var restaurant = com.menudigital.infrastructure.persistence.entity.RestaurantEntity
             .findById(user.restaurantId);
@@ -106,7 +99,7 @@ public class AuthResource {
         )).build();
     }
     
-    public record LoginRequest(String email, String password) {}
+    public record LoginRequest(String email) {}
     public record LoginResponse(String token, String tenantId, String restaurantName) {}
     public record ErrorResponse(String code, String message) {}
 }

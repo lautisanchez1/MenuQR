@@ -13,11 +13,10 @@ import java.util.UUID;
 public class UserRepositoryImpl implements PanacheRepositoryBase<UserEntity, UUID> {
     
     @Transactional
-    public UserEntity createUser(String email, String passwordHash, UUID restaurantId) {
+    public UserEntity createUser(String email, UUID restaurantId) {
         UserEntity user = new UserEntity();
         user.id = UUID.randomUUID();
         user.email = email;
-        user.passwordHash = passwordHash;
         user.restaurantId = restaurantId;
         user.createdAt = Instant.now();
         persist(user);
@@ -27,7 +26,11 @@ public class UserRepositoryImpl implements PanacheRepositoryBase<UserEntity, UUI
     public Optional<UserEntity> findByEmail(String email) {
         return find("email", email).firstResultOptional();
     }
-    
+
+    public Optional<UserEntity> findByCognitoSub(String cognitoSub) {
+        return find("cognitoSub", cognitoSub).firstResultOptional();
+    }
+
     public boolean existsByEmail(String email) {
         return count("email", email) > 0;
     }

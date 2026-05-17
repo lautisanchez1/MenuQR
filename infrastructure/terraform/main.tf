@@ -13,6 +13,35 @@ locals {
   ec2_graviton = can(regex("^[acmprst][0-9]+g\\.", var.ec2_instance_type))
 
   ec2_ami_ssm_parameter = local.ec2_graviton ? "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64" : "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+
+  cognito_identity_providers = {
+    google = {
+      provider_name    = "Google"
+      provider_type    = "Google"
+      client_id        = var.cognito_google_client_id
+      client_secret    = var.cognito_google_client_secret
+      authorize_scopes = ["openid", "email", "profile"]
+      attribute_mapping = {
+        email       = "email"
+        username    = "sub"
+        given_name  = "given_name"
+        family_name = "family_name"
+        name        = "name"
+      }
+    }
+    facebook = {
+      provider_name    = "Facebook"
+      provider_type    = "Facebook"
+      client_id        = var.cognito_facebook_client_id
+      client_secret    = var.cognito_facebook_client_secret
+      authorize_scopes = ["public_profile", "email"]
+      attribute_mapping = {
+        email    = "email"
+        username = "id"
+        name     = "name"
+      }
+    }
+  }
 }
 
 module "network" {
@@ -226,6 +255,26 @@ module "spa_bucket_users" {
 
   tags = merge(local.common_tags, {
     Role = "users-spa"
+  })
+}
+
+module "cognito" {
+  source = "./modules/cognito"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  domain_prefix     = lower("${var.project_name}-${var.environment}-auth")
+  callback_urls     = var.cognito_callback_urls
+  logout_urls       = var.cognito_logout_urls
+  enable_hosted_ui  = true
+  identity_providers = {
+    for key, provider in local.cognito_identity_providers : key => provider
+    if trimspace(provider.client_id) != "" && trimspace(provider.client_secret) != ""
+  }
+
+  tags = merge(local.common_tags, {
+    Role = "auth"
   })
 }
 
