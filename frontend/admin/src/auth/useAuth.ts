@@ -7,7 +7,6 @@ import { signOutEverywhere } from './cognito';
 const STORAGE_KEY_TOKEN = 'md_token';
 const STORAGE_KEY_TENANT_ID = 'md_tenant_id';
 const STORAGE_KEY_RESTAURANT_NAME = 'md_restaurant_name';
-const STORAGE_KEY_FEDERATED_EMAIL = 'md_federated_email';
 
 interface AccessTokenClaims {
   exp: number;
@@ -18,7 +17,6 @@ interface AuthState {
   tenantId: string | null;
   restaurantName: string | null;
   isAuthenticated: boolean;
-  federatedEmail: string | null;
 }
 
 function isTokenLive(token: string): boolean {
@@ -34,17 +32,16 @@ function readPersistedState(): AuthState {
   const token = localStorage.getItem(STORAGE_KEY_TOKEN);
   const tenantId = localStorage.getItem(STORAGE_KEY_TENANT_ID);
   const restaurantName = localStorage.getItem(STORAGE_KEY_RESTAURANT_NAME);
-  const federatedEmail = localStorage.getItem(STORAGE_KEY_FEDERATED_EMAIL);
 
   if (token && tenantId && restaurantName && isTokenLive(token)) {
-    return { token, tenantId, restaurantName, isAuthenticated: true, federatedEmail };
+    return { token, tenantId, restaurantName, isAuthenticated: true };
   }
 
   if (token && !isTokenLive(token)) {
     localStorage.removeItem(STORAGE_KEY_TOKEN);
   }
 
-  return { token: null, tenantId: null, restaurantName: null, isAuthenticated: false, federatedEmail };
+  return { token: null, tenantId: null, restaurantName: null, isAuthenticated: false };
 }
 
 function persistSession(accessToken: string, session: SessionResponse) {
@@ -57,7 +54,6 @@ function clearSession() {
   localStorage.removeItem(STORAGE_KEY_TOKEN);
   localStorage.removeItem(STORAGE_KEY_TENANT_ID);
   localStorage.removeItem(STORAGE_KEY_RESTAURANT_NAME);
-  localStorage.removeItem(STORAGE_KEY_FEDERATED_EMAIL);
 }
 
 export function useAuth() {
@@ -65,13 +61,12 @@ export function useAuth() {
 
   const establishSession = useCallback((accessToken: string, session: SessionResponse) => {
     persistSession(accessToken, session);
-    setAuthState((current) => ({
+    setAuthState({
       token: accessToken,
       tenantId: session.tenantId,
       restaurantName: session.restaurantName,
       isAuthenticated: true,
-      federatedEmail: current.federatedEmail,
-    }));
+    });
   }, []);
 
   const register = useCallback(async (data: RegisterRequest, idToken: string, accessToken: string) => {
@@ -80,16 +75,6 @@ export function useAuth() {
     return session;
   }, [establishSession]);
 
-  const setFederatedEmail = useCallback((email: string) => {
-    localStorage.setItem(STORAGE_KEY_FEDERATED_EMAIL, email);
-    setAuthState((current) => ({ ...current, federatedEmail: email }));
-  }, []);
-
-  const clearFederatedEmail = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY_FEDERATED_EMAIL);
-    setAuthState((current) => ({ ...current, federatedEmail: null }));
-  }, []);
-
   const logout = useCallback(async () => {
     clearSession();
     setAuthState({
@@ -97,11 +82,8 @@ export function useAuth() {
       tenantId: null,
       restaurantName: null,
       isAuthenticated: false,
-      federatedEmail: null,
     });
 
-    // Amplify clears its own token store and, for federated sessions, redirects
-    // through the Cognito /logout endpoint so the IdP session is dropped too.
     try {
       await signOutEverywhere();
     } catch {
@@ -126,8 +108,6 @@ export function useAuth() {
     ...authState,
     establishSession,
     register,
-    setFederatedEmail,
-    clearFederatedEmail,
     logout,
   };
 }

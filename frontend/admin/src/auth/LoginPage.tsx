@@ -7,14 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { authApi } from '@/shared/api/authApi';
-import {
-  canUseCognitoAuth,
-  getCurrentTokens,
-  signInWithEmail,
-  socialProviders,
-  startFederatedSignIn,
-  type SocialProvider,
-} from './cognito';
+import { canUseCognitoAuth, getCurrentTokens, signInWithEmail } from './cognito';
 import { useAuth } from './useAuth';
 
 interface AmplifyErrorLike { name?: string; message?: string }
@@ -42,7 +35,7 @@ function describeSignInError(err: unknown): string {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { establishSession, setFederatedEmail } = useAuth();
+  const { establishSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -88,7 +81,6 @@ export function LoginPage() {
       setError('Could not read Cognito session. Try signing in again.');
       return;
     }
-    setFederatedEmail(email.trim());
     try {
       const session = await authApi.bootstrapSession(tokens.idToken);
       establishSession(tokens.accessToken, session);
@@ -100,14 +92,6 @@ export function LoginPage() {
         return;
       }
       setError('Unable to complete sign-in right now.');
-    }
-  };
-
-  const handleSocial = async (provider: SocialProvider) => {
-    try {
-      await startFederatedSignIn(provider);
-    } catch (err) {
-      setError(describeSignInError(err));
     }
   };
 
@@ -157,33 +141,6 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={!configured || loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
-
-            {socialProviders.length > 0 && (
-              <>
-                <div className="relative my-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">or</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {socialProviders.map((provider) => (
-                    <Button
-                      key={provider}
-                      type="button"
-                      className="w-full"
-                      variant="outline"
-                      disabled={!configured || loading}
-                      onClick={() => handleSocial(provider)}
-                    >
-                      Continue with {provider}
-                    </Button>
-                  ))}
-                </div>
-              </>
-            )}
 
             {!configured && (
               <p className="text-xs text-muted-foreground text-center">

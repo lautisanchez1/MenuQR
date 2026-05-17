@@ -4,7 +4,6 @@ import { SignUpPage } from './auth/SignUpPage';
 import { ConfirmSignUpPage } from './auth/ConfirmSignUpPage';
 import { ForgotPasswordPage } from './auth/ForgotPasswordPage';
 import { RegisterPage } from './auth/RegisterPage';
-import { AuthCallbackPage } from './auth/AuthCallbackPage';
 import { DashboardPage } from './dashboard/DashboardPage';
 import { MenuPage } from './menu/MenuPage';
 import { AnalyticsPage } from './analytics/AnalyticsPage';
@@ -23,7 +22,6 @@ export default function App() {
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/confirm" element={<ConfirmSignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
           path="/admin"

@@ -3,7 +3,6 @@ import {
   signUp as amplifySignUp,
   confirmSignUp as amplifyConfirmSignUp,
   resendSignUpCode as amplifyResendSignUpCode,
-  signInWithRedirect,
   resetPassword,
   confirmResetPassword,
   signOut as amplifySignOut,
@@ -11,15 +10,6 @@ import {
   autoSignIn,
 } from 'aws-amplify/auth';
 import { isAmplifyAuthConfigured } from './amplifyConfig';
-
-export type SocialProvider = 'Google' | 'Facebook';
-
-// Comma-separated list of federated providers the deploy has wired up at the
-// Cognito side. Empty (the default) means native email/password only.
-export const socialProviders: SocialProvider[] = (import.meta.env.VITE_COGNITO_ENABLED_PROVIDERS || '')
-  .split(',')
-  .map((s: string) => s.trim())
-  .filter((s: string): s is SocialProvider => s === 'Google' || s === 'Facebook');
 
 export interface CognitoTokens {
   idToken: string;
@@ -51,9 +41,6 @@ export async function signUpWithEmail(email: string, password: string) {
 
 export async function confirmSignUpCode(email: string, code: string) {
   const result = await amplifyConfirmSignUp({ username: email, confirmationCode: code });
-  // autoSignIn was enabled at signUp; promote the session now that the
-  // account is confirmed. Throws if the auto sign-in window has lapsed —
-  // callers should fall back to /login in that case.
   if (result.isSignUpComplete) {
     try {
       await autoSignIn();
@@ -74,10 +61,6 @@ export async function requestPasswordReset(email: string) {
 
 export async function confirmPasswordReset(email: string, code: string, newPassword: string) {
   return confirmResetPassword({ username: email, confirmationCode: code, newPassword });
-}
-
-export async function startFederatedSignIn(provider: SocialProvider) {
-  return signInWithRedirect({ provider });
 }
 
 export async function getCurrentTokens(): Promise<CognitoTokens | null> {

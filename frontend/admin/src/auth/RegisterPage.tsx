@@ -19,8 +19,8 @@ interface CognitoIdClaims {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register, federatedEmail, setFederatedEmail, clearFederatedEmail } = useAuth();
-  const [email, setEmail] = useState<string | null>(federatedEmail);
+  const { register } = useAuth();
+  const [email, setEmail] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     restaurantName: '',
     slug: '',
@@ -39,18 +39,15 @@ export function RegisterPage() {
       if (!email) {
         const claims = jwtDecode<CognitoIdClaims>(tokens.idToken);
         const fromClaim = claims.email?.trim();
-        if (fromClaim) {
-          if (!cancelled) {
-            setEmail(fromClaim);
-            setFederatedEmail(fromClaim);
-          }
+        if (fromClaim && !cancelled) {
+          setEmail(fromClaim);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [navigate, email, setFederatedEmail]);
+  }, [navigate, email]);
 
   const generateSlug = (name: string) => {
     return name
@@ -120,7 +117,6 @@ export function RegisterPage() {
         slug: formData.slug,
       }, tokens.idToken, tokens.accessToken);
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
-      clearFederatedEmail();
       navigate('/admin');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
