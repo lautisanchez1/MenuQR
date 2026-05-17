@@ -126,3 +126,6 @@ terraform/lambda_*.zip
 *.tfstate
 *.tfstate.backup
 *lock.hcl
+
+*__pycache__
+*__pycache__/
