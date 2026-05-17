@@ -1,26 +1,23 @@
 import { apiClient } from './client';
-import type { AuthResponse } from '../types';
+import type { SessionResponse } from '../types';
 
 export interface RegisterRequest {
   restaurantName: string;
   slug: string;
-  ownerEmail: string;
-  password: string;
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
+function bearerHeader(idToken: string) {
+  return { headers: { Authorization: `Bearer ${idToken}` } };
 }
 
 export const authApi = {
-  register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/register', data);
+  register: async (data: RegisterRequest, idToken: string): Promise<SessionResponse> => {
+    const response = await apiClient.post<SessionResponse>('/api/auth/register', data, bearerHeader(idToken));
     return response.data;
   },
 
-  login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/login', data);
+  bootstrapSession: async (idToken: string): Promise<SessionResponse> => {
+    const response = await apiClient.post<SessionResponse>('/api/auth/session', null, bearerHeader(idToken));
     return response.data;
   },
 };

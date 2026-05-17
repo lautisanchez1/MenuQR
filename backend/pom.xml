@@ -64,14 +64,10 @@
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
         
-        <!-- JWT Security -->
+        <!-- JWT Security — verification only; signing is owned by Cognito. -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-jwt</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-jwt-build</artifactId>
         </dependency>
         
         <!-- AWS SDK v2 -->

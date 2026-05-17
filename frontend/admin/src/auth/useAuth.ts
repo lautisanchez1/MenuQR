@@ -1,11 +1,15 @@
 import { useState, useCallback, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { authApi, type RegisterRequest, type LoginRequest } from '@/shared/api/authApi';
+import { authApi, type RegisterRequest } from '@/shared/api/authApi';
+import type { SessionResponse } from '@/shared/types';
+import { signOutEverywhere } from './cognito';
 
-interface JwtPayload {
-  sub: string;
-  tenantId: string;
-  restaurantName: string;
+const STORAGE_KEY_TOKEN = 'md_token';
+const STORAGE_KEY_TENANT_ID = 'md_tenant_id';
+const STORAGE_KEY_RESTAURANT_NAME = 'md_restaurant_name';
+const STORAGE_KEY_FEDERATED_EMAIL = 'md_federated_email';
+
+interface AccessTokenClaims {
   exp: number;
 }
 
@@ -14,80 +18,103 @@ interface AuthState {
   tenantId: string | null;
   restaurantName: string | null;
   isAuthenticated: boolean;
+  federatedEmail: string | null;
+}
+
+function isTokenLive(token: string): boolean {
+  try {
+    const { exp } = jwtDecode<AccessTokenClaims>(token);
+    return exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function readPersistedState(): AuthState {
+  const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+  const tenantId = localStorage.getItem(STORAGE_KEY_TENANT_ID);
+  const restaurantName = localStorage.getItem(STORAGE_KEY_RESTAURANT_NAME);
+  const federatedEmail = localStorage.getItem(STORAGE_KEY_FEDERATED_EMAIL);
+
+  if (token && tenantId && restaurantName && isTokenLive(token)) {
+    return { token, tenantId, restaurantName, isAuthenticated: true, federatedEmail };
+  }
+
+  if (token && !isTokenLive(token)) {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+  }
+
+  return { token: null, tenantId: null, restaurantName: null, isAuthenticated: false, federatedEmail };
+}
+
+function persistSession(accessToken: string, session: SessionResponse) {
+  localStorage.setItem(STORAGE_KEY_TOKEN, accessToken);
+  localStorage.setItem(STORAGE_KEY_TENANT_ID, session.tenantId);
+  localStorage.setItem(STORAGE_KEY_RESTAURANT_NAME, session.restaurantName);
+}
+
+function clearSession() {
+  localStorage.removeItem(STORAGE_KEY_TOKEN);
+  localStorage.removeItem(STORAGE_KEY_TENANT_ID);
+  localStorage.removeItem(STORAGE_KEY_RESTAURANT_NAME);
+  localStorage.removeItem(STORAGE_KEY_FEDERATED_EMAIL);
 }
 
 export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>(() => {
-    const token = localStorage.getItem('md_token');
-    if (token) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        if (decoded.exp * 1000 > Date.now()) {
-          return {
-            token,
-            tenantId: decoded.tenantId,
-            restaurantName: decoded.restaurantName,
-            isAuthenticated: true,
-          };
-        }
-      } catch {
-        localStorage.removeItem('md_token');
-      }
+  const [authState, setAuthState] = useState<AuthState>(readPersistedState);
+
+  const establishSession = useCallback((accessToken: string, session: SessionResponse) => {
+    persistSession(accessToken, session);
+    setAuthState((current) => ({
+      token: accessToken,
+      tenantId: session.tenantId,
+      restaurantName: session.restaurantName,
+      isAuthenticated: true,
+      federatedEmail: current.federatedEmail,
+    }));
+  }, []);
+
+  const register = useCallback(async (data: RegisterRequest, idToken: string, accessToken: string) => {
+    const session = await authApi.register(data, idToken);
+    establishSession(accessToken, session);
+    return session;
+  }, [establishSession]);
+
+  const setFederatedEmail = useCallback((email: string) => {
+    localStorage.setItem(STORAGE_KEY_FEDERATED_EMAIL, email);
+    setAuthState((current) => ({ ...current, federatedEmail: email }));
+  }, []);
+
+  const clearFederatedEmail = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY_FEDERATED_EMAIL);
+    setAuthState((current) => ({ ...current, federatedEmail: null }));
+  }, []);
+
+  const logout = useCallback(async () => {
+    clearSession();
+    setAuthState({
+      token: null,
+      tenantId: null,
+      restaurantName: null,
+      isAuthenticated: false,
+      federatedEmail: null,
+    });
+
+    // Amplify clears its own token store and, for federated sessions, redirects
+    // through the Cognito /logout endpoint so the IdP session is dropped too.
+    try {
+      await signOutEverywhere();
+    } catch {
+      // Swallow — we've already cleared local state.
     }
-    return {
-      token: null,
-      tenantId: null,
-      restaurantName: null,
-      isAuthenticated: false,
-    };
-  });
-
-  const login = useCallback(async (data: LoginRequest) => {
-    const response = await authApi.login(data);
-    localStorage.setItem('md_token', response.token);
-    setAuthState({
-      token: response.token,
-      tenantId: response.tenantId,
-      restaurantName: response.restaurantName,
-      isAuthenticated: true,
-    });
-    return response;
-  }, []);
-
-  const register = useCallback(async (data: RegisterRequest) => {
-    const response = await authApi.register(data);
-    localStorage.setItem('md_token', response.token);
-    setAuthState({
-      token: response.token,
-      tenantId: response.tenantId,
-      restaurantName: response.restaurantName,
-      isAuthenticated: true,
-    });
-    return response;
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('md_token');
-    setAuthState({
-      token: null,
-      tenantId: null,
-      restaurantName: null,
-      isAuthenticated: false,
-    });
+    window.location.assign('/login');
   }, []);
 
   useEffect(() => {
     const checkTokenExpiry = () => {
-      const token = localStorage.getItem('md_token');
-      if (token) {
-        try {
-          const decoded = jwtDecode<JwtPayload>(token);
-          if (decoded.exp * 1000 <= Date.now()) {
-            logout();
-          }
-        } catch {
-          logout();
-        }
+      const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+      if (token && !isTokenLive(token)) {
+        logout();
       }
     };
 
@@ -97,8 +124,10 @@ export function useAuth() {
 
   return {
     ...authState,
-    login,
+    establishSession,
     register,
+    setFederatedEmail,
+    clearFederatedEmail,
     logout,
   };
 }

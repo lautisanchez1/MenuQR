@@ -16,9 +16,12 @@ public class UserEntity extends PanacheEntityBase {
     @Column(nullable = false, unique = true)
     public String email;
     
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     public String passwordHash;
-    
+
+    @Column(name = "cognito_sub", unique = true)
+    public String cognitoSub;
+
     @Column(name = "restaurant_id")
     public UUID restaurantId;
     

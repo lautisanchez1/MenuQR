@@ -1,28 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from './useAuth';
+import { jwtDecode } from 'jwt-decode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from './useAuth';
+import { getCurrentTokens } from './cognito';
 
 const MAX_RESTAURANT_NAME_LENGTH = 255;
 const MAX_SLUG_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 255;
-const MIN_PASSWORD_LENGTH = 8;
+
+interface CognitoIdClaims {
+  email?: string;
+}
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, federatedEmail, setFederatedEmail, clearFederatedEmail } = useAuth();
+  const [email, setEmail] = useState<string | null>(federatedEmail);
   const [formData, setFormData] = useState({
     restaurantName: '',
     slug: '',
-    ownerEmail: '',
-    password: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const tokens = await getCurrentTokens();
+      if (!tokens) {
+        if (!cancelled) navigate('/login', { replace: true });
+        return;
+      }
+      if (!email) {
+        const claims = jwtDecode<CognitoIdClaims>(tokens.idToken);
+        const fromClaim = claims.email?.trim();
+        if (fromClaim) {
+          if (!cancelled) {
+            setEmail(fromClaim);
+            setFederatedEmail(fromClaim);
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, email, setFederatedEmail]);
 
   const generateSlug = (name: string) => {
     return name
@@ -40,7 +68,7 @@ export function RegisterPage() {
       slug: generateSlug(name),
     }));
     setErrors(prev => {
-      const { restaurantName, ...rest } = prev;
+      const { restaurantName: _r, ...rest } = prev;
       return rest;
     });
   };
@@ -62,18 +90,12 @@ export function RegisterPage() {
       newErrors.slug = 'Only lowercase letters, numbers, and hyphens allowed';
     }
 
-    if (!formData.ownerEmail.trim()) {
-      newErrors.ownerEmail = 'Email is required';
-    } else if (formData.ownerEmail.length > MAX_EMAIL_LENGTH) {
+    if (!email) {
+      newErrors.ownerEmail = 'Please sign in first';
+    } else if (email.length > MAX_EMAIL_LENGTH) {
       newErrors.ownerEmail = `Email must be ${MAX_EMAIL_LENGTH} characters or less`;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.ownerEmail)) {
-      newErrors.ownerEmail = 'Please enter a valid email address';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < MIN_PASSWORD_LENGTH) {
-      newErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.ownerEmail = 'Cognito did not return a valid email address';
     }
 
     setErrors(newErrors);
@@ -87,16 +109,30 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      await register(formData);
+      const tokens = await getCurrentTokens();
+      if (!tokens) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      await register({
+        restaurantName: formData.restaurantName,
+        slug: formData.slug,
+      }, tokens.idToken, tokens.accessToken);
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
+      clearFederatedEmail();
       navigate('/admin');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { code?: string } } };
-        if (axiosError.response?.data?.code === 'SLUG_EXISTS') {
+        const axiosError = err as { response?: { status?: number; data?: { code?: string } } };
+        const code = axiosError.response?.data?.code;
+        if (code === 'INVALID_TOKEN' || axiosError.response?.status === 401) {
+          toast({ title: 'Session Expired', description: 'Please sign in again', variant: 'destructive' });
+          navigate('/login', { replace: true });
+        } else if (code === 'SLUG_EXISTS') {
           setErrors({ slug: 'This URL slug is already taken. Please choose another.' });
           toast({ title: 'Registration Failed', description: 'This URL slug is already taken', variant: 'destructive' });
-        } else if (axiosError.response?.data?.code === 'EMAIL_EXISTS') {
+        } else if (code === 'EMAIL_EXISTS') {
           setErrors({ ownerEmail: 'This email is already registered. Please sign in instead.' });
           toast({ title: 'Registration Failed', description: 'This email is already registered', variant: 'destructive' });
         } else {
@@ -116,9 +152,9 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Restaurant setup</CardTitle>
           <CardDescription className="text-center">
-            Register your restaurant on MenuQR
+            One more step to finish creating your account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -129,8 +165,22 @@ export function RegisterPage() {
               </div>
             )}
             <div className="space-y-2">
+              <Label htmlFor="email">Signed-in Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email || ''}
+                readOnly
+                disabled
+                className={errors.ownerEmail ? 'border-destructive' : ''}
+              />
+              {errors.ownerEmail && (
+                <p className="text-xs text-destructive">{errors.ownerEmail}</p>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="restaurantName">
-                Restaurant Name * 
+                Restaurant Name *
                 <span className="text-muted-foreground text-xs ml-1">
                   ({formData.restaurantName.length}/{MAX_RESTAURANT_NAME_LENGTH})
                 </span>
@@ -149,7 +199,7 @@ export function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="slug">
-                Menu URL * 
+                Menu URL *
                 <span className="text-muted-foreground text-xs ml-1">
                   ({formData.slug.length}/{MAX_SLUG_LENGTH})
                 </span>
@@ -163,7 +213,7 @@ export function RegisterPage() {
                   onChange={(e) => {
                     setFormData((prev) => ({ ...prev, slug: e.target.value }));
                     setErrors(prev => {
-                      const { slug, ...rest } = prev;
+                      const { slug: _s, ...rest } = prev;
                       return rest;
                     });
                   }}
@@ -177,57 +227,15 @@ export function RegisterPage() {
               </p>
               {errors.slug && <p className="text-xs text-destructive">{errors.slug}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="owner@restaurant.com"
-                value={formData.ownerEmail}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, ownerEmail: e.target.value }));
-                  setErrors(prev => {
-                    const { ownerEmail, ...rest } = prev;
-                    return rest;
-                  });
-                }}
-                maxLength={MAX_EMAIL_LENGTH}
-                className={errors.ownerEmail ? 'border-destructive' : ''}
-              />
-              {errors.ownerEmail && (
-                <p className="text-xs text-destructive">{errors.ownerEmail}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, password: e.target.value }));
-                  setErrors(prev => {
-                    const { password, ...rest } = prev;
-                    return rest;
-                  });
-                }}
-                minLength={MIN_PASSWORD_LENGTH}
-                className={errors.password ? 'border-destructive' : ''}
-              />
-              <p className="text-xs text-muted-foreground">Minimum {MIN_PASSWORD_LENGTH} characters</p>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password}</p>
-              )}
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Creating account...' : 'Finish setup'}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{' '}
+              Need to sign in again?{' '}
               <Link to="/login" className="text-primary hover:underline">
-                Sign in
+                Back to sign in
               </Link>
             </p>
           </CardFooter>

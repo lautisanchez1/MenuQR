@@ -77,8 +77,7 @@ export interface BucketCount {
   count: number;
 }
 
-export interface AuthResponse {
-  token: string;
+export interface SessionResponse {
   tenantId: string;
   restaurantName: string;
 }
