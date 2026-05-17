@@ -64,12 +64,12 @@ resource "aws_db_instance" "db" {
   username = var.db.username
   engine   = "postgres"
 
-  engine_version         = "18.3"
-  instance_class         = "db.t4g.micro"
-  allocated_storage      = 20
-  max_allocated_storage  = 40
-  storage_type           = "gp3"
-  storage_encrypted      = true
+  engine_version        = "18.3"
+  instance_class        = "db.t4g.micro"
+  allocated_storage     = 20
+  max_allocated_storage = 40
+  storage_type          = "gp3"
+  storage_encrypted     = true
 
   manage_master_user_password = true
 
@@ -80,7 +80,7 @@ resource "aws_db_instance" "db" {
   publicly_accessible = false
   skip_final_snapshot = true
 
-  backup_retention_period = 7
+  backup_retention_period    = 7
   auto_minor_version_upgrade = true
 
 }
