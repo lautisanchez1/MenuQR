@@ -1,7 +1,6 @@
-vpc = {
-  cidr = "172.30.0.0/16"
-  name = "MenuQR-vpc"
-}
+project_name = "menuqr"
+
+vpc_cidr = "172.30.0.0/16"
 
 images_bucket_name = "menuqr-images"
 ml_bucket_name     = "menuqr-ml"

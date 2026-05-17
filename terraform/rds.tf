@@ -1,5 +1,5 @@
 resource "aws_security_group" "db_client" {
-  name_prefix = "menuqr-db-client-"
+  name_prefix = "${local.name_prefix}-db-client-"
   vpc_id      = module.vpc.vpc_id
 
   egress {
@@ -15,7 +15,7 @@ resource "aws_security_group" "db_client" {
 }
 
 resource "aws_security_group" "db" {
-  name_prefix = "menuqr-rds-"
+  name_prefix = "${local.name_prefix}-rds-"
   vpc_id      = module.vpc.vpc_id
 
   lifecycle {
@@ -24,7 +24,7 @@ resource "aws_security_group" "db" {
 }
 
 resource "aws_security_group" "proxy" {
-  name_prefix = "menuqr-rds-proxy-"
+  name_prefix = "${local.name_prefix}-rds-proxy-"
   vpc_id      = module.vpc.vpc_id
 
   lifecycle {
@@ -58,7 +58,7 @@ resource "aws_vpc_security_group_egress_rule" "proxy_to_db" {
 
 
 resource "aws_db_instance" "db" {
-  identifier = "menuqr-postgres"
+  identifier = "${local.name_prefix}-postgres"
 
   db_name  = var.db.name
   username = var.db.username
@@ -90,7 +90,7 @@ module "rds_proxy" {
   source  = "terraform-aws-modules/rds-proxy/aws"
   version = "4.4.0"
 
-  name            = "menuqr-rds-proxy"
+  name            = "${local.name_prefix}-rds-proxy"
   create_iam_role = false
   role_arn        = data.aws_iam_role.lab_role.arn
   require_tls     = true

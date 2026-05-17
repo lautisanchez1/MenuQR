@@ -96,9 +96,9 @@ terraform output frontend_menu_website_url
 |---------|-------------------|
 | `slice` | `locals.tf` — subredes / AZs |
 | `cidrsubnets` | `locals.tf` — CIDRs por capa |
-| `lower` / `replace` | `locals.tf` — `name_prefix` |
+| `lower` / `replace` | `locals.tf` — `name_prefix` desde `var.project_name` |
 | `toset` | `s3.tf`, `vpc_endpoint.tf` — `for_each` |
-| `jsonencode` | `ecs.tf` — task definition |
+| `jsonencode` | `ecs.tf` — task definition (contenedor) |
 | `coalesce` | `modules/python-lambda` — VPC SG |
 
 ### Meta-argumentos

@@ -1,8 +1,9 @@
-variable "vpc" {
-  type = object({
-    name = string
-    cidr = string
-  })
+variable "project_name" {
+  type = string
+}
+
+variable "vpc_cidr" {
+  type = string
 }
 
 variable "images_bucket_name" { type = string }

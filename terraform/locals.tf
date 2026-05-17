@@ -1,7 +1,7 @@
 locals {
   azs = slice(data.aws_availability_zones.available.names, 0, 2)
 
-  cidrs = cidrsubnets(var.vpc.cidr,
+  cidrs = cidrsubnets(var.vpc_cidr,
     8, 8,
     8, 8,
     8, 8
@@ -10,7 +10,8 @@ locals {
   private_subnet_cidrs = slice(local.cidrs, 2, 4)
   db_subnet_cidrs      = slice(local.cidrs, 4, 6)
 
-  name_prefix  = lower(replace(var.vpc.name, "_", "-"))
+  name_prefix  = lower(replace(var.project_name, "_", "-"))
+  vpc_name     = "${local.name_prefix}-vpc"
   lab_role_arn = data.aws_iam_role.lab_role.arn
 
   private_bucket_names = [var.images_bucket_name, var.ml_bucket_name]

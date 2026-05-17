@@ -1,7 +1,7 @@
 module "ml_orchestrator_lambda" {
   source = "./modules/python-lambda"
 
-  function_name = "menuqr-ml-orchestrator"
+  function_name = "${local.name_prefix}-ml-orchestrator"
   handler       = "orchestrator_lambda.handler"
   source_dir    = "${local.ml_training_root}/lambda_dist/orchestrator"
   iam_role_arn  = data.aws_iam_role.lab_role.arn
@@ -20,7 +20,7 @@ module "ml_orchestrator_lambda" {
 module "ml_worker_lambda" {
   source = "./modules/python-lambda"
 
-  function_name = "menuqr-ml-worker"
+  function_name = "${local.name_prefix}-ml-worker"
   handler       = "worker_lambda.handler"
   source_dir    = "${local.ml_training_root}/lambda_dist/worker"
   iam_role_arn  = data.aws_iam_role.lab_role.arn
