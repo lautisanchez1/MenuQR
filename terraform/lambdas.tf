@@ -35,7 +35,6 @@ module "ml_worker_lambda" {
 resource "aws_sqs_queue" "ml-training" {
   name = "ml-training-queue"
 
-  # >= timeout del worker Lambda (300s)
   visibility_timeout_seconds = 360
   message_retention_seconds  = 86400
 }

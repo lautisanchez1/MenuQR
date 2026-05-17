@@ -62,7 +62,6 @@ jobs:
     name: Plan (AWS)
     runs-on: ubuntu-latest
     needs: validate
-    if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
     defaults:
       run:
         working-directory: terraform
@@ -71,21 +70,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # secrets no se pueden usar en `if:` a nivel job; se detectan aquí
+      - name: Detect AWS credentials
+        id: aws
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          if [ -n "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip plan (sin secrets AWS)
+        if: steps.aws.outputs.configured == 'false'
+        run: |
+          echo "Omitiendo terraform plan: configurar AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
+          echo "y AWS_SESSION_TOKEN en Settings → Secrets → Actions (credenciales Academy)."
+
       - name: Setup Terraform
+        if: steps.aws.outputs.configured == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.0"
           terraform_wrapper: false
 
       - name: Setup Python
+        if: steps.aws.outputs.configured == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Build Lambda artifacts
+        if: steps.aws.outputs.configured == 'true'
         run: bash ../ml-training/scripts/build_lambda_dists.sh
 
       - name: Configure AWS credentials
+        if: steps.aws.outputs.configured == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -94,9 +115,11 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform init
+        if: steps.aws.outputs.configured == 'true'
         run: terraform init -backend=false -input=false
 
       - name: Terraform plan
+        if: steps.aws.outputs.configured == 'true'
         id: plan
         run: |
           terraform plan \
@@ -107,6 +130,7 @@ jobs:
             | tee plan.txt
 
       - name: Upload plan artifact
+        if: steps.aws.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-${{ github.run_id }}

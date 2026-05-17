@@ -16,15 +16,15 @@ Workflow [`.github/workflows/terraform.yml`](../.github/workflows/terraform.yml)
 | Job | Cuándo | Qué hace |
 |-----|--------|----------|
 | **Init & validate** | Siempre en PR/push | `build_lambda_dists.sh` → `terraform fmt -check` → `init -backend=false` → `validate` |
-| **Plan (AWS)** | Si el repo tiene secrets AWS | `plan -var-file=terraform.tfvars` y sube artefacto `plan.txt` |
+| **Plan (AWS)** | Si hay secrets AWS en el repo | `plan -var-file=terraform.tfvars` y sube artefacto `plan.txt` |
 
-Secrets opcionales en GitHub (**Settings → Secrets → Actions**), típico con credenciales temporales de AWS Academy:
+Secrets en GitHub (**Settings → Secrets → Actions**), típico con credenciales temporales de AWS Academy:
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SESSION_TOKEN` (requerido con LabRole / STS)
 
-Sin secrets, el pipeline igual valida la sintaxis y módulos; el plan se omite.
+Sin secrets, el job **Plan** termina en verde con un mensaje informativo; **Init & validate** siempre corre.
 
 ## Requerimientos
 
