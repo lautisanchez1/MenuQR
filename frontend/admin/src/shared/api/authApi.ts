@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { AuthResponse } from '../types';
+import type { SessionResponse } from '../types';
 
 export interface RegisterRequest {
   restaurantName: string;
@@ -11,13 +11,13 @@ function bearerHeader(idToken: string) {
 }
 
 export const authApi = {
-  register: async (data: RegisterRequest, idToken: string): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/register', data, bearerHeader(idToken));
+  register: async (data: RegisterRequest, idToken: string): Promise<SessionResponse> => {
+    const response = await apiClient.post<SessionResponse>('/api/auth/register', data, bearerHeader(idToken));
     return response.data;
   },
 
-  login: async (idToken: string): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/api/auth/login', null, bearerHeader(idToken));
+  bootstrapSession: async (idToken: string): Promise<SessionResponse> => {
+    const response = await apiClient.post<SessionResponse>('/api/auth/session', null, bearerHeader(idToken));
     return response.data;
   },
 };

@@ -107,9 +107,6 @@ services:
       COGNITO_ISSUER_URL: ${COGNITO_ISSUER_URL:-}
       COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
       QUARKUS_PROFILE: ${QUARKUS_PROFILE:-dev}
-    volumes:
-      - ./backend/src/main/resources/privateKey.pem:/work/privateKey.pem:ro
-      - ./backend/src/main/resources/publicKey.pem:/work/publicKey.pem:ro
 
   admin-frontend:
     image: node:20-alpine

@@ -8,14 +8,15 @@ import { exchangeCodeForTokens, parseCallbackQuery } from './cognito';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const SESSION_KEY_ID_TOKEN = 'md_cognito_id_token';
+const SESSION_KEY_ACCESS_TOKEN = 'md_cognito_access_token';
 
-interface CognitoTokenClaims {
+interface CognitoIdClaims {
   email?: string;
 }
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
-  const { setFederatedEmail } = useAuth();
+  const { setFederatedEmail, establishSession } = useAuth();
   const [status, setStatus] = useState('Completing sign-in...');
   const [error, setError] = useState('');
 
@@ -44,7 +45,7 @@ export function AuthCallbackPage() {
         return;
       }
 
-      const claims = jwtDecode<CognitoTokenClaims>(tokens.idToken);
+      const claims = jwtDecode<CognitoIdClaims>(tokens.idToken);
       const email = claims.email?.trim();
 
       if (!email) {
@@ -54,31 +55,35 @@ export function AuthCallbackPage() {
       }
 
       setFederatedEmail(email);
+      // Park both tokens in sessionStorage so the register flow can pick them up if the
+      // user has no tenant yet. They are moved to localStorage on a successful session.
       sessionStorage.setItem(SESSION_KEY_ID_TOKEN, tokens.idToken);
+      sessionStorage.setItem(SESSION_KEY_ACCESS_TOKEN, tokens.accessToken);
       window.history.replaceState({}, document.title, window.location.pathname);
 
       try {
-        const response = await authApi.login(tokens.idToken);
-        localStorage.setItem('md_token', response.token);
+        const session = await authApi.bootstrapSession(tokens.idToken);
+        establishSession(tokens.accessToken, session);
         sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
+        sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
         setStatus('Signed in successfully');
         navigate('/admin', { replace: true });
       } catch (authError) {
         if (isAxiosError(authError) && authError.response?.status === 401 && authError.response?.data?.code === 'UNKNOWN_USER') {
-          // No tenant exists yet — keep the id_token in sessionStorage for the register flow.
           setStatus('Account setup required');
           navigate('/register', { replace: true });
           return;
         }
 
         sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
+        sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
         setError('Unable to complete sign-in right now');
         setStatus('Sign-in failed');
       }
     };
 
     void completeAuth();
-  }, [navigate, setFederatedEmail]);
+  }, [navigate, setFederatedEmail, establishSession]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

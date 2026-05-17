@@ -9,26 +9,22 @@ import com.menudigital.infrastructure.auth.CognitoTokenVerifier.AuthenticationEx
 import com.menudigital.infrastructure.auth.CognitoTokenVerifier.VerifiedIdToken;
 import com.menudigital.infrastructure.persistence.UserRepositoryImpl;
 import com.menudigital.infrastructure.persistence.entity.RestaurantEntity;
-import io.smallrye.jwt.build.Jwt;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-import java.time.Duration;
-
 @Path("/api/auth")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@Tag(name = "Authentication", description = "Cognito-backed login and registration")
+@Tag(name = "Authentication", description = "Cognito-backed session bootstrap")
 public class AuthResource {
 
     @Inject
@@ -39,9 +35,6 @@ public class AuthResource {
 
     @Inject
     CognitoTokenVerifier cognitoTokenVerifier;
-
-    @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "menudigital")
-    String issuer;
 
     @POST
     @Path("/register")
@@ -81,13 +74,13 @@ public class AuthResource {
     }
 
     @POST
-    @Path("/login")
-    @Operation(summary = "Exchange a Cognito ID token for an application session",
-        description = "Requires a verified Cognito ID token in the Authorization header. Returns the application JWT for the associated tenant.")
-    @APIResponse(responseCode = "200", description = "Login successful",
-        content = @Content(schema = @Schema(implementation = LoginResponse.class)))
+    @Path("/session")
+    @Operation(summary = "Bootstrap an application session for a verified Cognito identity",
+        description = "Requires a verified Cognito ID token in the Authorization header. Returns the tenant metadata so the SPA can render its shell. Subsequent calls authorize with the Cognito access token directly.")
+    @APIResponse(responseCode = "200", description = "Session bootstrap successful",
+        content = @Content(schema = @Schema(implementation = SessionResponse.class)))
     @APIResponse(responseCode = "401", description = "Missing or invalid Cognito token, or no account exists for this identity")
-    public Response login(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
+    public Response session(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         VerifiedIdToken verified;
         try {
             verified = cognitoTokenVerifier.verifyIdTokenHeader(authorization);
@@ -112,17 +105,7 @@ public class AuthResource {
                 .build();
         }
 
-        String token = Jwt.issuer(issuer)
-            .upn(user.id.toString())
-            .subject(user.id.toString())
-            .claim("tenantId", restaurant.id.toString())
-            .claim("restaurantName", restaurant.name)
-            .audience("menudigital-app")
-            .expiresIn(Duration.ofHours(24))
-            .sign();
-
-        return Response.ok(new LoginResponse(
-            token,
+        return Response.ok(new SessionResponse(
             restaurant.id.toString(),
             restaurant.name
         )).build();
@@ -134,6 +117,6 @@ public class AuthResource {
             .build();
     }
 
-    public record LoginResponse(String token, String tenantId, String restaurantName) {}
+    public record SessionResponse(String tenantId, String restaurantName) {}
     public record ErrorResponse(String code, String message) {}
 }

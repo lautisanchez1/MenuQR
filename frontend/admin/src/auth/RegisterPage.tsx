@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
 const SESSION_KEY_ID_TOKEN = 'md_cognito_id_token';
+const SESSION_KEY_ACCESS_TOKEN = 'md_cognito_access_token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,7 +92,8 @@ export function RegisterPage() {
         throw new Error('Missing federated email');
       }
       const idToken = sessionStorage.getItem(SESSION_KEY_ID_TOKEN);
-      if (!idToken) {
+      const accessToken = sessionStorage.getItem(SESSION_KEY_ACCESS_TOKEN);
+      if (!idToken || !accessToken) {
         navigate('/login', { replace: true });
         return;
       }
@@ -99,8 +101,9 @@ export function RegisterPage() {
       await register({
         restaurantName: formData.restaurantName,
         slug: formData.slug,
-      }, idToken);
+      }, idToken, accessToken);
       sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
+      sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
       clearFederatedEmail();
       navigate('/admin');
@@ -110,6 +113,7 @@ export function RegisterPage() {
         const code = axiosError.response?.data?.code;
         if (code === 'INVALID_TOKEN' || axiosError.response?.status === 401) {
           sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
+          sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
           toast({ title: 'Session Expired', description: 'Please sign in again', variant: 'destructive' });
           navigate('/login', { replace: true });
         } else if (code === 'SLUG_EXISTS') {
