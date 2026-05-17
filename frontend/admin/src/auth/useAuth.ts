@@ -14,11 +14,13 @@ interface AuthState {
   tenantId: string | null;
   restaurantName: string | null;
   isAuthenticated: boolean;
+  federatedEmail: string | null;
 }
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>(() => {
     const token = localStorage.getItem('md_token');
+    const federatedEmail = localStorage.getItem('md_federated_email');
     if (token) {
       try {
         const decoded = jwtDecode<JwtPayload>(token);
@@ -28,6 +30,7 @@ export function useAuth() {
             tenantId: decoded.tenantId,
             restaurantName: decoded.restaurantName,
             isAuthenticated: true,
+            federatedEmail,
           };
         }
       } catch {
@@ -39,6 +42,7 @@ export function useAuth() {
       tenantId: null,
       restaurantName: null,
       isAuthenticated: false,
+      federatedEmail,
     };
   });
 
@@ -50,9 +54,10 @@ export function useAuth() {
       tenantId: response.tenantId,
       restaurantName: response.restaurantName,
       isAuthenticated: true,
+      federatedEmail: authState.federatedEmail,
     });
     return response;
-  }, []);
+  }, [authState.federatedEmail]);
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authApi.register(data);
@@ -62,17 +67,36 @@ export function useAuth() {
       tenantId: response.tenantId,
       restaurantName: response.restaurantName,
       isAuthenticated: true,
+      federatedEmail: data.ownerEmail,
     });
     return response;
   }, []);
 
+  const setFederatedEmail = useCallback((email: string) => {
+    localStorage.setItem('md_federated_email', email);
+    setAuthState((current) => ({
+      ...current,
+      federatedEmail: email,
+    }));
+  }, []);
+
+  const clearFederatedEmail = useCallback(() => {
+    localStorage.removeItem('md_federated_email');
+    setAuthState((current) => ({
+      ...current,
+      federatedEmail: null,
+    }));
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('md_token');
+    localStorage.removeItem('md_federated_email');
     setAuthState({
       token: null,
       tenantId: null,
       restaurantName: null,
       isAuthenticated: false,
+      federatedEmail: null,
     });
   }, []);
 
@@ -99,6 +123,8 @@ export function useAuth() {
     ...authState,
     login,
     register,
+    setFederatedEmail,
+    clearFederatedEmail,
     logout,
   };
 }

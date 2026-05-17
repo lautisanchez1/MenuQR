@@ -5,12 +5,10 @@ export interface RegisterRequest {
   restaurantName: string;
   slug: string;
   ownerEmail: string;
-  password: string;
 }
 
 export interface LoginRequest {
   email: string;
-  password: string;
 }
 
 export const authApi = {

@@ -10,16 +10,13 @@ import { toast } from '@/hooks/use-toast';
 const MAX_RESTAURANT_NAME_LENGTH = 255;
 const MAX_SLUG_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 255;
-const MIN_PASSWORD_LENGTH = 8;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, federatedEmail, clearFederatedEmail } = useAuth();
   const [formData, setFormData] = useState({
     restaurantName: '',
     slug: '',
-    ownerEmail: '',
-    password: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -62,18 +59,12 @@ export function RegisterPage() {
       newErrors.slug = 'Only lowercase letters, numbers, and hyphens allowed';
     }
 
-    if (!formData.ownerEmail.trim()) {
-      newErrors.ownerEmail = 'Email is required';
-    } else if (formData.ownerEmail.length > MAX_EMAIL_LENGTH) {
+    if (!federatedEmail) {
+      newErrors.ownerEmail = 'Please sign in with Google or Facebook first';
+    } else if (federatedEmail.length > MAX_EMAIL_LENGTH) {
       newErrors.ownerEmail = `Email must be ${MAX_EMAIL_LENGTH} characters or less`;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.ownerEmail)) {
-      newErrors.ownerEmail = 'Please enter a valid email address';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < MIN_PASSWORD_LENGTH) {
-      newErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(federatedEmail)) {
+      newErrors.ownerEmail = 'Cognito did not return a valid email address';
     }
 
     setErrors(newErrors);
@@ -87,8 +78,17 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      await register(formData);
+      if (!federatedEmail) {
+        throw new Error('Missing federated email');
+      }
+
+      await register({
+        restaurantName: formData.restaurantName,
+        slug: formData.slug,
+        ownerEmail: federatedEmail,
+      });
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
+      clearFederatedEmail();
       navigate('/admin');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
@@ -118,7 +118,7 @@ export function RegisterPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
           <CardDescription className="text-center">
-            Register your restaurant on MenuDigital
+            Complete your restaurant setup after federated sign-in
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -128,6 +128,20 @@ export function RegisterPage() {
                 {errors.submit}
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Signed-in Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={federatedEmail || ''}
+                readOnly
+                disabled
+                className={errors.ownerEmail ? 'border-destructive' : ''}
+              />
+              {errors.ownerEmail && (
+                <p className="text-xs text-destructive">{errors.ownerEmail}</p>
+              )}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="restaurantName">
                 Restaurant Name * 
@@ -177,57 +191,15 @@ export function RegisterPage() {
               </p>
               {errors.slug && <p className="text-xs text-destructive">{errors.slug}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="owner@restaurant.com"
-                value={formData.ownerEmail}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, ownerEmail: e.target.value }));
-                  setErrors(prev => {
-                    const { ownerEmail, ...rest } = prev;
-                    return rest;
-                  });
-                }}
-                maxLength={MAX_EMAIL_LENGTH}
-                className={errors.ownerEmail ? 'border-destructive' : ''}
-              />
-              {errors.ownerEmail && (
-                <p className="text-xs text-destructive">{errors.ownerEmail}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, password: e.target.value }));
-                  setErrors(prev => {
-                    const { password, ...rest } = prev;
-                    return rest;
-                  });
-                }}
-                minLength={MIN_PASSWORD_LENGTH}
-                className={errors.password ? 'border-destructive' : ''}
-              />
-              <p className="text-xs text-muted-foreground">Minimum {MIN_PASSWORD_LENGTH} characters</p>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password}</p>
-              )}
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Creating account...' : 'Finish setup'}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{' '}
+              Need to sign in again?{' '}
               <Link to="/login" className="text-primary hover:underline">
-                Sign in
+                Choose a provider
               </Link>
             </p>
           </CardFooter>

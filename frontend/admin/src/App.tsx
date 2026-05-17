@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './auth/LoginPage';
 import { RegisterPage } from './auth/RegisterPage';
+import { AuthCallbackPage } from './auth/AuthCallbackPage';
 import { DashboardPage } from './dashboard/DashboardPage';
 import { MenuPage } from './menu/MenuPage';
 import { AnalyticsPage } from './analytics/AnalyticsPage';
@@ -16,6 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
           path="/admin"

@@ -120,6 +120,9 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
       VITE_MENU_URL: ${VITE_MENU_URL:-http://localhost:5173}
+      VITE_COGNITO_HOSTED_UI_BASE_URL: ${VITE_COGNITO_HOSTED_UI_BASE_URL:-}
+      VITE_COGNITO_CLIENT_ID: ${VITE_COGNITO_CLIENT_ID:-}
+      VITE_COGNITO_REDIRECT_URI: ${VITE_COGNITO_REDIRECT_URI:-http://localhost:5174/auth/callback}
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5174"
 
   menu-frontend:
