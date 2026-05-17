@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { jwtDecode } from 'jwt-decode';
@@ -19,8 +19,16 @@ export function AuthCallbackPage() {
   const { setFederatedEmail, establishSession } = useAuth();
   const [status, setStatus] = useState('Completing sign-in...');
   const [error, setError] = useState('');
+  // The token exchange consumes a one-shot PKCE verifier from sessionStorage.
+  // React 18 StrictMode mounts effects twice in dev; without this guard the
+  // second pass sees the verifier already removed and flashes "Missing PKCE
+  // verifier" before the first pass finishes navigating away.
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const completeAuth = async () => {
       const { code, state, error: oauthError, errorDescription } = parseCallbackQuery(window.location.search);
 
