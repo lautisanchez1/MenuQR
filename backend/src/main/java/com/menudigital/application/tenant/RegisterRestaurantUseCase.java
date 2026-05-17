@@ -30,11 +30,11 @@ public class RegisterRestaurantUseCase {
         if (restaurantRepository.existsBySlug(command.slug())) {
             throw new SlugAlreadyExistsException("Slug '" + command.slug() + "' is already taken");
         }
-        
+
         if (userRepository.existsByEmail(command.ownerEmail())) {
             throw new EmailAlreadyExistsException("Email '" + command.ownerEmail() + "' is already registered");
         }
-        
+
         Restaurant restaurant = Restaurant.create(
             command.restaurantName(),
             command.slug(),
@@ -42,10 +42,10 @@ public class RegisterRestaurantUseCase {
         );
         restaurantRepository.save(restaurant);
 
-        var user = userRepository.createUser(command.ownerEmail(), restaurant.getId().value());
-        
+        var user = userRepository.createUser(command.ownerEmail(), command.cognitoSub(), restaurant.getId().value());
+
         String token = generateToken(user.id.toString(), restaurant.getId().toString(), restaurant.getName());
-        
+
         return new RegisterRestaurantResponse(
             token,
             restaurant.getId().toString(),
