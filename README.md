@@ -54,31 +54,56 @@ menudigital/
 - Docker & Docker Compose
 - Java 21 (for local backend development)
 - Node.js 20 (for local frontend development)
+- Terraform >= 1.6 + AWS credentials (Academy Learner Lab works)
 
-### 1. Environment Setup
+### 1. Provision Cognito (required before first `docker compose up`)
+
+The backend authenticates against a real Cognito user pool — it will refuse
+to start without one. There are no offline / no-auth defaults; this matches
+AWS standard practice (no app should run un-authenticated, even locally).
 
 ```bash
-# Copy the environment template
+cd infrastructure/terraform
+terraform init
+terraform apply -target=module.cognito
+```
+
+The Cognito module is self-contained — it doesn't create RDS, EC2, or VPC.
+Apply takes ~30s and costs nothing in the AWS free tier.
+
+Grab the outputs you'll need next:
+
+```bash
+terraform output cognito_issuer_url
+terraform output cognito_user_pool_client_id
+terraform output cognito_hosted_ui_base_url
+```
+
+**On AWS Academy / Learner Lab:** when the lab session resets, the user pool
+is destroyed. Re-run `terraform apply -target=module.cognito` and update
+`.env` with the new outputs.
+
+### 2. Environment Setup
+
+```bash
 cp .env.example .env
-
-# Edit .env with your settings (optional - defaults work for local development)
 ```
 
-### 2. JWT Keys (Optional)
+Open `.env` and paste the three terraform outputs from step 1 into:
+- `COGNITO_ISSUER_URL`
+- `COGNITO_CLIENT_ID`
+- `VITE_COGNITO_HOSTED_UI_BASE_URL`
 
-Development JWT keys are included in the repository. For production, generate new keys:
-
-```bash
-cd backend/src/main/resources
-openssl genrsa -out privateKey.pem 2048
-openssl rsa -pubout -in privateKey.pem -out publicKey.pem
-```
+The other defaults (Postgres, MinIO, DynamoDB Local) work out of the box.
 
 ### 3. Start with Docker Compose
 
 ```bash
-docker-compose up
+docker compose up
 ```
+
+If the backend fails at boot with `Failed to load config value ... mp.jwt.verify.issuer`,
+you skipped step 1 or 2 — the Cognito env vars are unset.
 
 This starts:
 - PostgreSQL on port 5432
