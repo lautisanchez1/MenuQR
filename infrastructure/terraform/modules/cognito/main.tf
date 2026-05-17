@@ -1,4 +1,8 @@
 data "aws_region" "current" {}
+# unique suffix to avoid frequent collides on shared accounts (AWS Academy).
+resource "random_id" "domain_suffix" {
+  byte_length = 3
+}
 
 resource "aws_cognito_user_pool" "this" {
     name = "${var.project_name}-${var.environment}-users"
@@ -18,6 +22,13 @@ resource "aws_cognito_user_pool" "this" {
 
     admin_create_user_config {
         allow_admin_create_user_only = false
+    }
+
+    account_recovery_setting {
+        recovery_mechanism {
+            name     = "verified_email"
+            priority = 1
+        }
     }
 
     dynamic "schema" {
@@ -41,25 +52,25 @@ resource "aws_cognito_user_pool" "this" {
 }
 
 resource "aws_cognito_identity_provider" "external" {
-  for_each = var.identity_providers
+  for_each = nonsensitive(toset(keys(var.identity_providers)))
 
   user_pool_id  = aws_cognito_user_pool.this.id
-  provider_name = each.value.provider_name
-  provider_type = each.value.provider_type
+  provider_name = var.identity_providers[each.key].provider_name
+  provider_type = var.identity_providers[each.key].provider_type
 
   provider_details = {
-    client_id        = each.value.client_id
-    client_secret    = each.value.client_secret
-    authorize_scopes = join(" ", each.value.authorize_scopes)
+    client_id        = var.identity_providers[each.key].client_id
+    client_secret    = var.identity_providers[each.key].client_secret
+    authorize_scopes = join(" ", var.identity_providers[each.key].authorize_scopes)
   }
 
-  attribute_mapping = each.value.attribute_mapping
+  attribute_mapping = var.identity_providers[each.key].attribute_mapping
 }
 
 resource "aws_cognito_user_pool_domain" "this" {
   count = var.enable_hosted_ui ? 1 : 0
 
-  domain       = var.domain_prefix
+  domain       = "${var.domain_prefix}-${random_id.domain_suffix.hex}"
   user_pool_id = aws_cognito_user_pool.this.id
 }
 
@@ -77,8 +88,13 @@ resource "aws_cognito_user_pool_client" "spa" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
-  callback_urls                       = var.callback_urls
+  callback_urls                        = var.callback_urls
   logout_urls                          = var.logout_urls
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
 
   access_token_validity  = 60
   id_token_validity      = 60
@@ -89,6 +105,7 @@ resource "aws_cognito_user_pool_client" "spa" {
     refresh_token = "days"
   }
 
+  enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"
 }
 
