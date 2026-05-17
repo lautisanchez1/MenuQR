@@ -43,14 +43,18 @@ variable "custom_attributes" {
   default     = []
 }
 
-variable "groups" {
-  type = list(object({
-    name        = string
-    description = string
-    precedence  = number
+variable "identity_providers" {
+  type = map(object({
+    provider_name     = string
+    provider_type     = string
+    client_id         = string
+    client_secret     = string
+    authorize_scopes  = list(string)
+    attribute_mapping = map(string)
   }))
-  description = "User groups for RBAC T"
-  default     = []
+  description = "Federated identity providers (e.g. Google, Facebook) keyed by short name"
+  default     = {}
+  sensitive   = true
 }
 
 variable "tags" {

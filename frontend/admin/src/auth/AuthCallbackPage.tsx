@@ -4,7 +4,7 @@ import { isAxiosError } from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { authApi } from '@/shared/api/authApi';
 import { useAuth } from './useAuth';
-import { parseCognitoHash } from './cognito';
+import { exchangeCodeForTokens, parseCallbackQuery } from './cognito';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface CognitoTokenClaims {
@@ -19,7 +19,7 @@ export function AuthCallbackPage() {
 
   useEffect(() => {
     const completeAuth = async () => {
-      const { idToken, error: oauthError, errorDescription } = parseCognitoHash(window.location.hash);
+      const { code, state, error: oauthError, errorDescription } = parseCallbackQuery(window.location.search);
 
       if (oauthError) {
         setError(errorDescription || oauthError);
@@ -27,13 +27,22 @@ export function AuthCallbackPage() {
         return;
       }
 
-      if (!idToken) {
-        setError('Missing Cognito token');
+      if (!code || !state) {
+        setError('Missing OAuth code or state');
         setStatus('Sign-in failed');
         return;
       }
 
-      const claims = jwtDecode<CognitoTokenClaims>(idToken);
+      let tokens;
+      try {
+        tokens = await exchangeCodeForTokens(code, state);
+      } catch (exchangeError) {
+        setError(exchangeError instanceof Error ? exchangeError.message : 'Token exchange failed');
+        setStatus('Sign-in failed');
+        return;
+      }
+
+      const claims = jwtDecode<CognitoTokenClaims>(tokens.idToken);
       const email = claims.email?.trim();
 
       if (!email) {
@@ -43,7 +52,7 @@ export function AuthCallbackPage() {
       }
 
       setFederatedEmail(email);
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      window.history.replaceState({}, document.title, window.location.pathname);
 
       try {
         const response = await authApi.login({ email });

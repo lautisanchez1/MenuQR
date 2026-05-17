@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { buildHostedUiUrl, canUseCognitoHostedUi, socialProviders } from './cognito';
 
 export function LoginPage() {
-  const startLogin = (provider: 'Google' | 'Facebook') => {
-    window.location.assign(buildHostedUiUrl(provider));
+  const startLogin = async (provider: 'Google' | 'Facebook') => {
+    window.location.assign(await buildHostedUiUrl(provider));
   };
 
   return (

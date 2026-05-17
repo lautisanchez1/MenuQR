@@ -3,25 +3,23 @@ data "aws_region" "current" {}
 resource "aws_cognito_user_pool" "this" {
     name = "${var.project_name}-${var.environment}-users"
 
-    username_attributes         = ["email"]
-    # auto_verified_attributes    = ["email"] -> no verificar email
-    # Cognito creates them in UNCONFIRMED state and we verify them? TODO CHECK!!
+    username_attributes      = ["email"]
+    auto_verified_attributes = ["email"]
 
     password_policy {
-        minimum_length          = 12
-        require_lowercase       = true
-        require_uppercase       = true
-        require_numbers         = true
-        require_symbols         = true
+        minimum_length    = 12
+        require_lowercase = true
+        require_uppercase = true
+        require_numbers   = true
+        require_symbols   = true
     }
-
-    # verification_message_template { }
 
     mfa_configuration = "OFF"
 
-    # Admin creates users without email verif flow
+    # Social-only: disable Cognito-native self-signup. Federated users
+    # (Google/Facebook) are still auto-created by the federation flow.
     admin_create_user_config {
-        allow_admin_create_user_only = false # allow self signup
+        allow_admin_create_user_only = true
     }
 
     dynamic "schema" {
@@ -79,7 +77,7 @@ resource "aws_cognito_user_pool_client" "spa" {
   )
 
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["implicit"]
+  allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   callback_urls                       = var.callback_urls
   logout_urls                          = var.logout_urls
@@ -96,10 +94,3 @@ resource "aws_cognito_user_pool_client" "spa" {
   prevent_user_existence_errors = "ENABLED"
 }
 
-resource "aws_cognito_user_group" "groups" {
-  for_each     = { for g in var.groups : g.name => g }
-  name         = each.value.name
-  description  = each.value.description
-  precedence   = each.value.precedence
-  user_pool_id = aws_cognito_user_pool.this.id
-}

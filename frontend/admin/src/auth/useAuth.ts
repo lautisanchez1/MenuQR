@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { authApi, type RegisterRequest, type LoginRequest } from '@/shared/api/authApi';
+import { buildHostedUiLogoutUrl } from './cognito';
 
 interface JwtPayload {
   sub: string;
@@ -98,6 +99,13 @@ export function useAuth() {
       isAuthenticated: false,
       federatedEmail: null,
     });
+
+    // End the Cognito hosted-UI session too, otherwise the next "Continue with Google"
+    // click silently re-authenticates against the still-active IdP session.
+    const cognitoLogoutUrl = buildHostedUiLogoutUrl();
+    if (cognitoLogoutUrl) {
+      window.location.assign(cognitoLogoutUrl);
+    }
   }, []);
 
   useEffect(() => {
