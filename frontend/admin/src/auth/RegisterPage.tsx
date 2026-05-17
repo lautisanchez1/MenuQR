@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from './useAuth';
-
-const SESSION_KEY_ID_TOKEN = 'md_cognito_id_token';
-const SESSION_KEY_ACCESS_TOKEN = 'md_cognito_access_token';
+import { jwtDecode } from 'jwt-decode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from './useAuth';
+import { getCurrentTokens } from './cognito';
 
 const MAX_RESTAURANT_NAME_LENGTH = 255;
 const MAX_SLUG_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 255;
 
+interface CognitoIdClaims {
+  email?: string;
+}
+
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register, federatedEmail, clearFederatedEmail } = useAuth();
+  const { register, federatedEmail, setFederatedEmail, clearFederatedEmail } = useAuth();
+  const [email, setEmail] = useState<string | null>(federatedEmail);
   const [formData, setFormData] = useState({
     restaurantName: '',
     slug: '',
@@ -25,11 +29,28 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Without a Cognito ID token in sessionStorage we can't register — bounce to login.
-    if (!sessionStorage.getItem(SESSION_KEY_ID_TOKEN)) {
-      navigate('/login', { replace: true });
-    }
-  }, [navigate]);
+    let cancelled = false;
+    (async () => {
+      const tokens = await getCurrentTokens();
+      if (!tokens) {
+        if (!cancelled) navigate('/login', { replace: true });
+        return;
+      }
+      if (!email) {
+        const claims = jwtDecode<CognitoIdClaims>(tokens.idToken);
+        const fromClaim = claims.email?.trim();
+        if (fromClaim) {
+          if (!cancelled) {
+            setEmail(fromClaim);
+            setFederatedEmail(fromClaim);
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, email, setFederatedEmail]);
 
   const generateSlug = (name: string) => {
     return name
@@ -47,7 +68,7 @@ export function RegisterPage() {
       slug: generateSlug(name),
     }));
     setErrors(prev => {
-      const { restaurantName, ...rest } = prev;
+      const { restaurantName: _r, ...rest } = prev;
       return rest;
     });
   };
@@ -69,11 +90,11 @@ export function RegisterPage() {
       newErrors.slug = 'Only lowercase letters, numbers, and hyphens allowed';
     }
 
-    if (!federatedEmail) {
-      newErrors.ownerEmail = 'Please sign in with Google or Facebook first';
-    } else if (federatedEmail.length > MAX_EMAIL_LENGTH) {
+    if (!email) {
+      newErrors.ownerEmail = 'Please sign in first';
+    } else if (email.length > MAX_EMAIL_LENGTH) {
       newErrors.ownerEmail = `Email must be ${MAX_EMAIL_LENGTH} characters or less`;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(federatedEmail)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.ownerEmail = 'Cognito did not return a valid email address';
     }
 
@@ -88,12 +109,8 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      if (!federatedEmail) {
-        throw new Error('Missing federated email');
-      }
-      const idToken = sessionStorage.getItem(SESSION_KEY_ID_TOKEN);
-      const accessToken = sessionStorage.getItem(SESSION_KEY_ACCESS_TOKEN);
-      if (!idToken || !accessToken) {
+      const tokens = await getCurrentTokens();
+      if (!tokens) {
         navigate('/login', { replace: true });
         return;
       }
@@ -101,9 +118,7 @@ export function RegisterPage() {
       await register({
         restaurantName: formData.restaurantName,
         slug: formData.slug,
-      }, idToken, accessToken);
-      sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
-      sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
+      }, tokens.idToken, tokens.accessToken);
       toast({ title: 'Welcome!', description: 'Your restaurant has been registered', variant: 'success' });
       clearFederatedEmail();
       navigate('/admin');
@@ -112,8 +127,6 @@ export function RegisterPage() {
         const axiosError = err as { response?: { status?: number; data?: { code?: string } } };
         const code = axiosError.response?.data?.code;
         if (code === 'INVALID_TOKEN' || axiosError.response?.status === 401) {
-          sessionStorage.removeItem(SESSION_KEY_ID_TOKEN);
-          sessionStorage.removeItem(SESSION_KEY_ACCESS_TOKEN);
           toast({ title: 'Session Expired', description: 'Please sign in again', variant: 'destructive' });
           navigate('/login', { replace: true });
         } else if (code === 'SLUG_EXISTS') {
@@ -139,9 +152,9 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Restaurant setup</CardTitle>
           <CardDescription className="text-center">
-            Complete your restaurant setup after federated sign-in
+            One more step to finish creating your account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -156,7 +169,7 @@ export function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                value={federatedEmail || ''}
+                value={email || ''}
                 readOnly
                 disabled
                 className={errors.ownerEmail ? 'border-destructive' : ''}
@@ -167,7 +180,7 @@ export function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="restaurantName">
-                Restaurant Name * 
+                Restaurant Name *
                 <span className="text-muted-foreground text-xs ml-1">
                   ({formData.restaurantName.length}/{MAX_RESTAURANT_NAME_LENGTH})
                 </span>
@@ -186,7 +199,7 @@ export function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="slug">
-                Menu URL * 
+                Menu URL *
                 <span className="text-muted-foreground text-xs ml-1">
                   ({formData.slug.length}/{MAX_SLUG_LENGTH})
                 </span>
@@ -200,7 +213,7 @@ export function RegisterPage() {
                   onChange={(e) => {
                     setFormData((prev) => ({ ...prev, slug: e.target.value }));
                     setErrors(prev => {
-                      const { slug, ...rest } = prev;
+                      const { slug: _s, ...rest } = prev;
                       return rest;
                     });
                   }}
@@ -222,7 +235,7 @@ export function RegisterPage() {
             <p className="text-sm text-muted-foreground text-center">
               Need to sign in again?{' '}
               <Link to="/login" className="text-primary hover:underline">
-                Choose a provider
+                Back to sign in
               </Link>
             </p>
           </CardFooter>

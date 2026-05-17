@@ -89,10 +89,11 @@ is destroyed. Re-run `terraform apply -target=module.cognito` and update
 cp .env.example .env
 ```
 
-Open `.env` and paste the three terraform outputs from step 1 into:
+Open `.env` and paste the terraform outputs from step 1 into:
 - `COGNITO_ISSUER_URL`
 - `COGNITO_CLIENT_ID`
-- `VITE_COGNITO_HOSTED_UI_BASE_URL`
+- `COGNITO_USER_POOL_ID`
+- `VITE_COGNITO_HOSTED_UI_BASE_URL` (only required if you wired Google/Facebook)
 
 The other defaults (Postgres, MinIO, DynamoDB Local) work out of the box.
 

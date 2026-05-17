@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { authApi, type RegisterRequest } from '@/shared/api/authApi';
 import type { SessionResponse } from '@/shared/types';
-import { buildHostedUiLogoutUrl } from './cognito';
+import { signOutEverywhere } from './cognito';
 
 const STORAGE_KEY_TOKEN = 'md_token';
 const STORAGE_KEY_TENANT_ID = 'md_tenant_id';
@@ -90,7 +90,7 @@ export function useAuth() {
     setAuthState((current) => ({ ...current, federatedEmail: null }));
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     clearSession();
     setAuthState({
       token: null,
@@ -100,12 +100,14 @@ export function useAuth() {
       federatedEmail: null,
     });
 
-    // End the Cognito hosted-UI session too, otherwise the next "Continue with Google"
-    // click silently re-authenticates against the still-active IdP session.
-    const cognitoLogoutUrl = buildHostedUiLogoutUrl();
-    if (cognitoLogoutUrl) {
-      window.location.assign(cognitoLogoutUrl);
+    // Amplify clears its own token store and, for federated sessions, redirects
+    // through the Cognito /logout endpoint so the IdP session is dropped too.
+    try {
+      await signOutEverywhere();
+    } catch {
+      // Swallow — we've already cleared local state.
     }
+    window.location.assign('/login');
   }, []);
 
   useEffect(() => {
