@@ -73,13 +73,9 @@ Antes del primer `terraform apply`, crear el bucket y la tabla de locks (solo un
 bash terraform/scripts/terraform-init-remote.sh
 ```
 
-Genera `terraform/backend.hcl` (no se commitea) y deja listo `terraform init` contra S3. Si ya existía `terraform.tfstate` local:
+Genera `terraform/backend.hcl` (no se commitea) y deja listo `terraform init` contra S3.
 
-```bash
-MIGRATE_LOCAL_STATE=1 bash terraform/scripts/terraform-init-remote.sh
-```
-
-Detalle en [Estado remoto (S3 + DynamoDB)](#estado-remoto-s3--dynamodb). Para CI, copiar `TF_STATE_BUCKET` y `TF_STATE_DYNAMODB_TABLE` a los secrets de GitHub (salida de `terraform -chdir=terraform/bootstrap output`).
+Para CI, copiar `TF_STATE_BUCKET` y `TF_STATE_DYNAMODB_TABLE` a los secrets de GitHub (salida de `terraform -chdir=terraform/bootstrap output`).
 
 ### Paso a paso
 

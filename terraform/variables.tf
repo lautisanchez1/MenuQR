@@ -1,7 +1,5 @@
 variable "aws_region" {
-  type        = string
-  description = "AWS region for all resources. Override with TF_VAR_aws_region or -var."
-  default     = "us-east-1"
+  type = string
 }
 
 variable "project_name" {

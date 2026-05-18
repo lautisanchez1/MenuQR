@@ -4,13 +4,11 @@ on:
   pull_request:
     paths:
       - "terraform/**"
-      - "cognito-custom-message/**"
       - "ml-training/**"
       - ".github/workflows/terraform_init_validate_plan.yml"
   push:
     paths:
       - "terraform/**"
-      - "cognito-custom-message/**"
       - "ml-training/**"
       - ".github/workflows/terraform_init_validate_plan.yml"
 

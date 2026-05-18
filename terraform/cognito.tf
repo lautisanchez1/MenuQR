@@ -29,10 +29,6 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
 
-  lambda_config {
-    custom_message = module.cognito_custom_message_lambda.function_arn
-  }
-
   verification_message_template {
     default_email_option = "CONFIRM_WITH_CODE"
     email_subject        = "Verify your MenuQR account"

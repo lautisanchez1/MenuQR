@@ -1,5 +1,7 @@
 variable "project_name" {
-  type        = string
-  description = "Must match project_name in ../terraform.tfvars"
-  default     = "menuqr"
+  type = string
+}
+
+variable "aws_region" {
+  type = string
 }
