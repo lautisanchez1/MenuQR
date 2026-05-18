@@ -26,8 +26,11 @@ bash "${ROOT}/ml-training/scripts/build_lambda_dists.sh"
 
 echo ""
 echo "==> 2/4 Terraform"
-if [[ ! -d "${TF_DIR}/.terraform" ]]; then
-  echo "    terraform init"
+if [[ -f "${TF_DIR}/backend.hcl" ]]; then
+  echo "    terraform init (remote state)"
+  terraform -chdir="${TF_DIR}" init -backend-config=backend.hcl -input=false
+elif [[ ! -d "${TF_DIR}/.terraform" ]]; then
+  echo "    terraform init (local state; remoto: bash terraform/scripts/terraform-init-remote.sh)"
   terraform -chdir="${TF_DIR}" init -input=false
 fi
 

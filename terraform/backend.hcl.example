@@ -1,0 +1,8 @@
+# Copy to backend.hcl (gitignored) or pass with: terraform init -backend-config=backend.hcl
+# Generate automatically: bash terraform/scripts/terraform-init-remote.sh
+
+bucket         = "menuqr-tfstate-123456789012"
+dynamodb_table = "menuqr-tf-locks"
+key            = "menuqr/terraform.tfstate"
+region         = "us-east-1"
+encrypt        = true
