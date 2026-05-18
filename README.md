@@ -130,7 +130,7 @@ Al crearlo, se pueden cargar platos del menu, ver ordenes, o cargar mesas.
 Al cargar una mesa se obtiene un QR dirigido a la pagina del Menu desde donde se pueden ver los platos disponibles e iniciar una orden
 
 El entrenamiento de modelos es responsabilidad de las lambdas.
-Se usa EventBridge para llamar a una Lambda orquestadora según un CRON ,el cual se define como variable en terraform, pero por defecto es de 1 vez por dia.
+Se usa EventBridge para llamar a una Lambda orquestadora según un CRON, el cual se define como variable en terraform, pero por defecto es de 1 vez por dia.
 Alternativamente, se puede ejecutar manualmente la Lambda. Esta Lambda se encarga de obtener todos los tenants de la rds y enviar un request por tenant a un SQS para que le llegue a la otra Lambda,
 la que se encarga de usar las metricas de ese tenant para entrenar un modelo de recomendaciones de platos. 
 Los modelos se guardan en S3, y los usa el backend para dar recomendaciones de platos.
