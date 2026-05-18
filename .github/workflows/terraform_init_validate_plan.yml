@@ -1,16 +1,11 @@
 name: Terraform init, validate & plan
 
 on:
+  workflow_dispatch: 
+
   pull_request:
-    paths:
-      - "terraform/**"
-      - "ml-training/**"
-      - ".github/workflows/terraform_init_validate_plan.yml"
+
   push:
-    paths:
-      - "terraform/**"
-      - "ml-training/**"
-      - ".github/workflows/terraform_init_validate_plan.yml"
 
 permissions:
   contents: read
