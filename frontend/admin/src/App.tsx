@@ -4,7 +4,6 @@ import { SignUpPage } from './auth/SignUpPage';
 import { ConfirmSignUpPage } from './auth/ConfirmSignUpPage';
 import { ForgotPasswordPage } from './auth/ForgotPasswordPage';
 import { RegisterPage } from './auth/RegisterPage';
-import { DashboardPage } from './dashboard/DashboardPage';
 import { MenuPage } from './menu/MenuPage';
 import { AnalyticsPage } from './analytics/AnalyticsPage';
 import { TablesPage } from './tables/TablesPage';

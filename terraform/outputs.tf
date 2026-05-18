@@ -47,13 +47,13 @@ output "backend_ml_s3_bucket" {
 }
 
 output "cognito_user_pool_id" {
-  value       = aws_cognito_user_pool.main.id
+  value = aws_cognito_user_pool.main.id
 }
 
 output "cognito_user_pool_client_id" {
-  value       = aws_cognito_user_pool_client.admin_spa.id
+  value = aws_cognito_user_pool_client.admin_spa.id
 }
 
 output "cognito_issuer_url" {
-  value       = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.main.id}"
+  value = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.main.id}"
 }

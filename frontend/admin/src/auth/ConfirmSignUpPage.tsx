@@ -41,29 +41,32 @@ export function ConfirmSignUpPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { establishSession } = useAuth();
-  const [email, setEmail] = useState(params.get('email') || '');
+  const emailFromUrl = params.get('email')?.trim() ?? '';
+  const emailLocked = emailFromUrl.length > 0;
+  const [email, setEmail] = useState(emailFromUrl);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const configured = canUseCognitoAuth();
+  const resolvedEmail = emailLocked ? emailFromUrl : email.trim();
 
   useEffect(() => {
-    if (!email && params.get('email')) {
-      setEmail(params.get('email') || '');
+    if (emailFromUrl && email !== emailFromUrl) {
+      setEmail(emailFromUrl);
     }
-  }, [params, email]);
+  }, [emailFromUrl, email]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !code.trim()) {
+    if (!resolvedEmail || !code.trim()) {
       setError('Email and code are required.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      await confirmSignUpCode(email.trim(), code.trim());
+      await confirmSignUpCode(resolvedEmail, code.trim());
       const tokens = await getCurrentTokens();
       if (!tokens) {
         toast({ title: 'Email verified', description: 'Please sign in to continue.', variant: 'success' });
@@ -89,14 +92,14 @@ export function ConfirmSignUpPage() {
   };
 
   const handleResend = async () => {
-    if (!email.trim()) {
+    if (!resolvedEmail) {
       setError('Enter your email first.');
       return;
     }
     setResending(true);
     setError('');
     try {
-      await resendConfirmationCode(email.trim());
+      await resendConfirmationCode(resolvedEmail);
       toast({ title: 'Code resent', description: 'Check your inbox.', variant: 'success' });
     } catch (err) {
       setError(describeConfirmError(err));
@@ -126,22 +129,26 @@ export function ConfirmSignUpPage() {
                 {error}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@restaurant.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={!configured || loading}
-              />
-            </div>
-            {email.trim() && (
+            {emailLocked ? (
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-                <p className="text-muted-foreground">Check your inbox at</p>
-                <p className="font-medium truncate">{email}</p>
+                <p className="text-muted-foreground">Code sent to</p>
+                <p className="font-medium truncate">{emailFromUrl}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@restaurant.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={!configured || loading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use the same email you signed up with.
+                </p>
               </div>
             )}
             <OtpCodeField

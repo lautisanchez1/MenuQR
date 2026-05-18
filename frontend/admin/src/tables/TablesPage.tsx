@@ -532,27 +532,10 @@ export function TablesPage() {
                 <p className="break-all text-xs font-mono">{getTableUrl(qrTable)}</p>
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => copyQrUrl(qrTable)}
-                >
-                  {copiedId === qrTable.id ? (
-                    <Check className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Copy className="mr-2 h-4 w-4" />
-                  )}
-                  {copiedId === qrTable.id ? 'Copied!' : 'Copy URL'}
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={downloadQr}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PNG
-                </Button>
-              </div>
+              <Button className="w-full" onClick={downloadQr}>
+                <Download className="mr-2 h-4 w-4" />
+                Download PNG
+              </Button>
 
               <p className="text-center text-xs text-muted-foreground">
                 Print this QR code and place it on the table. Customers scan to view the menu and place orders.
