@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
+import { MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +15,8 @@ import {
   resendConfirmationCode,
 } from './cognito';
 import { useAuth } from './useAuth';
+import { AuthShell } from './AuthShell';
+import { OtpCodeField } from './OtpCodeField';
 
 interface AmplifyErrorLike { name?: string; message?: string }
 
@@ -37,7 +40,7 @@ function describeConfirmError(err: unknown): string {
 export function ConfirmSignUpPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { establishSession, setFederatedEmail } = useAuth();
+  const { establishSession } = useAuth();
   const [email, setEmail] = useState(params.get('email') || '');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -61,15 +64,12 @@ export function ConfirmSignUpPage() {
     setLoading(true);
     try {
       await confirmSignUpCode(email.trim(), code.trim());
-      // confirmSignUpCode invoked autoSignIn() on our behalf. If a session is
-      // available, push the user straight into the restaurant-setup flow.
       const tokens = await getCurrentTokens();
       if (!tokens) {
         toast({ title: 'Email verified', description: 'Please sign in to continue.', variant: 'success' });
         navigate('/login', { replace: true });
         return;
       }
-      setFederatedEmail(email.trim());
       try {
         const session = await authApi.bootstrapSession(tokens.idToken);
         establishSession(tokens.accessToken, session);
@@ -106,18 +106,23 @@ export function ConfirmSignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Verify your email</CardTitle>
-          <CardDescription className="text-center">
-            Enter the 6-digit code we sent to your inbox
-          </CardDescription>
+    <AuthShell>
+      <Card className="border-border/60 shadow-lg">
+        <CardHeader className="space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <MailCheck className="h-6 w-6" />
+          </div>
+          <div className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-bold">Verify your email</CardTitle>
+            <CardDescription>
+              Enter the code we sent to complete your registration
+            </CardDescription>
+          </div>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -126,28 +131,31 @@ export function ConfirmSignUpPage() {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
+                placeholder="you@restaurant.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={!configured || loading}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="code">Verification code</Label>
-              <Input
-                id="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                disabled={!configured || loading}
-              />
-            </div>
+            {email.trim() && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+                <p className="text-muted-foreground">Check your inbox at</p>
+                <p className="font-medium truncate">{email}</p>
+              </div>
+            )}
+            <OtpCodeField
+              id="code"
+              value={code}
+              onChange={setCode}
+              disabled={!configured || loading}
+            />
             <Button type="submit" className="w-full" disabled={!configured || loading}>
               {loading ? 'Verifying...' : 'Verify email'}
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               className="w-full"
               onClick={handleResend}
               disabled={!configured || resending}
@@ -165,6 +173,6 @@ export function ConfirmSignUpPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

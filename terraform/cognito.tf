@@ -13,7 +13,7 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   password_policy {
-    minimum_length    = 8
+    minimum_length    = 12
     require_lowercase = true
     require_uppercase = true
     require_numbers   = true
@@ -27,6 +27,16 @@ resource "aws_cognito_user_pool" "main" {
       name     = "verified_email"
       priority = 1
     }
+  }
+
+  lambda_config {
+    custom_message = module.cognito_custom_message_lambda.function_arn
+  }
+
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
+    email_subject        = "Verify your MenuQR account"
+    email_message        = "Your MenuQR verification code is {####}. It expires in 24 hours."
   }
 }
 

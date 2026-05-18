@@ -21,7 +21,9 @@ Despliegue en **AWS** desde Linux, macOS o [WSL 2](https://learn.microsoft.com/e
 |-----------|--------------------------------------------------------------------------------------------------|
 | Cuenta AWS | Permisos para VPC, RDS, ECS, Lambda, S3, DynamoDB, ECR, etc.                                     |
 | Rol **LabRole** | De **AWS Academy** (`data.aws_iam_role.lab_role` en Terraform)                                   |
-| [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2 | `aws configure` o `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y, si aplica, `AWS_SESSION_TOKEN` |
+| [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2 | `aws configure` o variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y, si aplica, `AWS_SESSION_TOKEN` |
+
+Para que `terraform plan` corra en GitHub Actions, las mismas credenciales deben cargarse como [secrets del repositorio](#secrets-del-repositorio) (ver sección CI).
 
 ```bash
 aws sts get-caller-identity
@@ -62,18 +64,39 @@ Providers Terraform: **hashicorp/aws** (≥ 5.71.0), **hashicorp/archive** (≥ 
 El empaquetado de Lambdas ocurre en `ml-training/scripts/build_lambda_dists.sh` (lo invoca `deploy.sh`).
 
 ## Instrucciones de Ejecución
+
+### Primera vez: estado remoto (S3 + DynamoDB)
+
+Antes del primer `terraform apply`, crear el bucket y la tabla de locks (solo una vez por cuenta AWS):
+
+```bash
+bash terraform/scripts/terraform-init-remote.sh
+```
+
+Genera `terraform/backend.hcl` (no se commitea) y deja listo `terraform init` contra S3. Si ya existía `terraform.tfstate` local:
+
+```bash
+MIGRATE_LOCAL_STATE=1 bash terraform/scripts/terraform-init-remote.sh
+```
+
+Detalle en [Estado remoto (S3 + DynamoDB)](#estado-remoto-s3--dynamodb). Para CI, copiar `TF_STATE_BUCKET` y `TF_STATE_DYNAMODB_TABLE` a los secrets de GitHub (salida de `terraform -chdir=terraform/bootstrap output`).
+
 ### Paso a paso
 
 ```bash
 bash ml-training/scripts/build_lambda_dists.sh
-cd terraform && terraform init && terraform apply
+bash terraform/scripts/terraform-init-remote.sh   # omitir si backend.hcl ya existe
+cd terraform && terraform apply -var-file=terraform.tfvars
 bash terraform/scripts/deploy-backend.sh
 bash terraform/scripts/deploy-frontends.sh
 ```
 
 ### Alternativa - Script completo
 
+`deploy.sh` usa `backend.hcl` automáticamente si existe (ejecutar el bootstrap antes la primera vez):
+
 ```bash
+bash terraform/scripts/terraform-init-remote.sh   # solo la primera vez
 bash terraform/scripts/deploy.sh
 ```
 ### Outputs útiles
@@ -106,6 +129,7 @@ Por este motivo, Terraform se utiliza únicamente para crear y configurar la inf
 
 Tras ejecutar los scripts de deploy de backend y frontends, las URL de los mismos se veran en la terminal.
 En primer lugar, se debe ingresar a la pagina de admin y crear un usuario.
+En caso de querer 
 Al crearlo, se pueden cargar platos del menu, ver ordenes, o cargar mesas. 
 Al cargar una mesa se obtiene un QR dirigido a la pagina del Menu desde donde se pueden ver los platos disponibles e iniciar una orden
 
@@ -135,6 +159,68 @@ cat /tmp/orchestrator-out.json
 ```
 
 ## Terraform
+
+### Estado remoto (S3 + DynamoDB)
+
+El state de Terraform puede guardarse en **S3** con bloqueo en **DynamoDB** (evita applies concurrentes y permite compartir estado entre máquinas y CI).
+
+| Recurso | Nombre (ejemplo) |
+|---------|------------------|
+| Bucket S3 | `menuqr-tfstate-<account-id>` |
+| Tabla DynamoDB | `menuqr-tf-locks` |
+| Clave del state | `menuqr/terraform.tfstate` |
+
+**Primera vez (bootstrap):** el bucket y la tabla se crean en un stack aparte con estado local (`terraform/bootstrap/`), porque el backend remoto aún no existe.
+
+```bash
+bash terraform/scripts/terraform-init-remote.sh
+```
+
+Eso escribe `terraform/backend.hcl` (gitignored) y ejecuta `terraform init` contra S3. Si ya tenías `terraform.tfstate` local:
+
+```bash
+MIGRATE_LOCAL_STATE=1 bash terraform/scripts/terraform-init-remote.sh
+```
+
+`deploy.sh` usa `backend.hcl` automáticamente si existe.
+
+**CI:** tras el bootstrap, añade en GitHub Secrets (valores de `terraform -chdir=terraform/bootstrap output`):
+
+| Secret | Ejemplo |
+|--------|---------|
+| `TF_STATE_BUCKET` | `menuqr-tfstate-123456789012` |
+| `TF_STATE_DYNAMODB_TABLE` | `menuqr-tf-locks` |
+
+Sin esos secrets el plan en Actions sigue funcionando con `-backend=false` (solo validación de configuración, sin state compartido).
+
+Plantilla: `terraform/backend.hcl.example`.
+
+### CI en GitHub Actions (`terraform_init_validate_plan.yml`)
+
+En cada **pull request** o **push** que toque `terraform/` (u otras rutas del workflow), se ejecuta `terraform fmt`, `validate` y, si hay credenciales AWS configuradas, un `terraform plan` contra la cuenta real.
+
+#### Secrets del repositorio
+
+Configurarlos en **Settings → Secrets and variables → Actions → Repository secrets** 
+
+| Secret | Obligatorio | Descripción |
+|--------|-------------|-------------|
+| `AWS_ACCESS_KEY_ID` | Sí (para plan) | Access key de la cuenta AWS (p. ej. credenciales temporales de AWS Academy). |
+| `AWS_SECRET_ACCESS_KEY` | Sí (para plan) | Secret asociado a la access key. |
+| `AWS_SESSION_TOKEN` | Sí en Academy | Token de sesión temporal. En cuentas con claves permanentes puede omitirse o dejarse vacío. |
+| `TF_STATE_BUCKET` | No (recomendado) | Bucket S3 del estado remoto (ver [Estado remoto](#estado-remoto-s3--dynamodb)). |
+| `TF_STATE_DYNAMODB_TABLE` | No (recomendado) | Tabla DynamoDB de locks (`menuqr-tf-locks`). |
+
+La región usada en CI es `us-east-1`, igual que en `terraform/provider.tf`.
+
+**Cómo obtener los valores (AWS Academy):**
+
+1. Iniciar sesión en el [Learner Lab](https://awsacademy.instructure.com/) y abrir **AWS Academy Learner Lab**.
+2. Pulsar **Start Lab** y esperar a que el indicador esté en verde.
+3. En **AWS Details** → **AWS CLI**, copiar las credenciales que muestra el panel (incluyen `aws_access_key_id`, `aws_secret_access_key` y `aws_session_token`).
+4. Pegar cada valor en el secret homónimo del repositorio de GitHub.
+
+Renovar los secrets cuando expire la sesión del lab (suelen caducar tras unas horas); si el plan falla con `ExpiredToken`, actualizar los tres secrets `AWS_*`.
 
 ### Módulos propios
 

@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { KeyRound, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { canUseCognitoAuth, confirmPasswordReset, requestPasswordReset } from './cognito';
-
-const MIN_PASSWORD_LENGTH = 12;
-const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+import { AuthShell } from './AuthShell';
+import { AuthStepIndicator } from './AuthStepIndicator';
+import { OtpCodeField } from './OtpCodeField';
+import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, PASSWORD_RULE } from './passwordPolicy';
 
 interface AmplifyErrorLike { name?: string; message?: string }
 
@@ -93,31 +96,52 @@ export function ForgotPasswordPage() {
     }
   };
 
+  const handleResend = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await requestPasswordReset(email.trim());
+      toast({ title: 'Code resent', description: 'Check your inbox.', variant: 'success' });
+    } catch (err) {
+      setError(describeResetError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Reset password</CardTitle>
-          <CardDescription className="text-center">
-            {stage === 'request'
-              ? "Enter your email and we'll send a verification code"
-              : 'Enter the code and choose a new password'}
-          </CardDescription>
+    <AuthShell>
+      <Card className="border-border/60 shadow-lg">
+        <CardHeader className="space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            {stage === 'request' ? <Mail className="h-6 w-6" /> : <KeyRound className="h-6 w-6" />}
+          </div>
+          <div className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-bold">Reset password</CardTitle>
+            <CardDescription>
+              {stage === 'request'
+                ? "We'll email you a verification code"
+                : 'Choose a new password for your account'}
+            </CardDescription>
+          </div>
+          <AuthStepIndicator
+            steps={['Email', 'New password']}
+            current={stage === 'request' ? 1 : 2}
+          />
         </CardHeader>
+
         {stage === 'request' ? (
           <form onSubmit={handleRequest}>
             <CardContent className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                  {error}
-                </div>
-              )}
+              {error && <AuthError message={error} />}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   autoComplete="email"
+                  placeholder="you@restaurant.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={!configured || loading}
@@ -139,60 +163,92 @@ export function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleConfirm}>
             <CardContent className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                  {error}
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="code">Verification code</Label>
-                <Input
-                  id="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  disabled={!configured || loading}
-                />
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+                <p className="text-muted-foreground">Code sent to</p>
+                <p className="font-medium truncate">{email}</p>
               </div>
+
+              {error && <AuthError message={error} />}
+
+              <OtpCodeField
+                id="code"
+                value={code}
+                onChange={setCode}
+                disabled={!configured || loading}
+              />
+
               <div className="space-y-2">
                 <Label htmlFor="new-password">New password</Label>
-                <Input
+                <PasswordInput
                   id="new-password"
-                  type="password"
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={!configured || loading}
                 />
+                <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirm new password</Label>
-                <Input
+                <PasswordInput
                   id="confirm-password"
-                  type="password"
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   disabled={!configured || loading}
                 />
               </div>
+
               <Button type="submit" className="w-full" disabled={!configured || loading}>
                 {loading ? 'Updating...' : 'Update password'}
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setStage('request')}
-                disabled={loading}
-              >
-                Use a different email
-              </Button>
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleResend}
+                  disabled={!configured || loading}
+                >
+                  Resend code
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setStage('request');
+                    setCode('');
+                    setNewPassword('');
+                    setConfirm('');
+                    setError('');
+                  }}
+                  disabled={loading}
+                >
+                  Use a different email
+                </Button>
+              </div>
             </CardContent>
+            <CardFooter>
+              <p className="text-sm text-muted-foreground text-center w-full">
+                <Link to="/login" className="text-primary hover:underline">
+                  Back to sign in
+                </Link>
+              </p>
+            </CardFooter>
           </form>
         )}
       </Card>
+    </AuthShell>
+  );
+}
+
+function AuthError({ message }: { message: string }) {
+  return (
+    <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      {message}
     </div>
   );
 }

@@ -2,14 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { canUseCognitoAuth, signUpWithEmail } from './cognito';
-
-// Mirrors the Cognito user-pool password policy in main.tf.
-const MIN_PASSWORD_LENGTH = 12;
-const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, PASSWORD_RULE } from './passwordPolicy';
 
 interface AmplifyErrorLike { name?: string; message?: string }
 
@@ -97,23 +95,19 @@ export function SignUpPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={!configured || loading}
               />
-              <p className="text-xs text-muted-foreground">
-                12+ characters with upper, lower, number, and symbol.
-              </p>
+              <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

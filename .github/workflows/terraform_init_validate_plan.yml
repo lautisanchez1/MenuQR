@@ -1,10 +1,19 @@
-name: terraform_init_validate_plan.yml
+name: Terraform init, validate & plan
+
 on:
   pull_request:
     paths:
       - "terraform/**"
+      - "cognito-custom-message/**"
       - "ml-training/**"
-      - ".github/workflows/terraform.yml"
+      - ".github/workflows/terraform_init_validate_plan.yml"
+  push:
+    paths:
+      - "terraform/**"
+      - "cognito-custom-message/**"
+      - "ml-training/**"
+      - ".github/workflows/terraform_init_validate_plan.yml"
+
 permissions:
   contents: read
 
@@ -58,6 +67,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check AWS secrets
+        id: aws
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Repository secrets AWS_* are not set — terraform plan is skipped."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.aws.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
       - name: Setup Terraform
         if: steps.aws.outputs.configured == 'true'
         uses: hashicorp/setup-terraform@v3
@@ -75,9 +105,38 @@ jobs:
         if: steps.aws.outputs.configured == 'true'
         run: bash ../ml-training/scripts/build_lambda_dists.sh
 
+      - name: Check remote state secrets
+        id: tfbackend
+        if: steps.aws.outputs.configured == 'true'
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          if [ -n "$TF_STATE_BUCKET" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::TF_STATE_BUCKET / TF_STATE_DYNAMODB_TABLE not set — plan without remote backend."
+          fi
+
+      - name: Write backend config
+        if: steps.aws.outputs.configured == 'true' && steps.tfbackend.outputs.configured == 'true'
+        run: |
+          cat > backend.hcl <<EOF
+          bucket         = "${{ secrets.TF_STATE_BUCKET }}"
+          dynamodb_table = "${{ secrets.TF_STATE_DYNAMODB_TABLE }}"
+          key            = "menuqr/terraform.tfstate"
+          region         = "us-east-1"
+          encrypt        = true
+          EOF
+
       - name: Terraform init
         if: steps.aws.outputs.configured == 'true'
-        run: terraform init -backend=false -input=false
+        run: |
+          if [ "${{ steps.tfbackend.outputs.configured }}" = "true" ]; then
+            terraform init -backend-config=backend.hcl -input=false
+          else
+            terraform init -backend=false -input=false
+          fi
 
       - name: Terraform plan
         if: steps.aws.outputs.configured == 'true'
