@@ -37,10 +37,10 @@ aws sts get-caller-identity
 |-------------|---------|------------|
 | [Terraform](https://developer.hashicorp.com/terraform/install) | ≥ **1.8.5** | Infraestructura (`terraform apply`) |
 | [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) | v2 | Deploy, `aws s3 sync`, ECR |
-| [Docker](https://docs.docker.com/engine/install/) | Reciente | Imagen del backend → ECR |
+| [Docker](https://docs.docker.com/engine/install/) | Reciente | Backend → ECR; **obligatorio** para Lambdas ML ([nota](#empaquetado-de-lambdas-ml)) |
 | [JDK](https://adoptium.net/) + [Maven](https://maven.apache.org/install.html) | Java **21**, Maven 3.9+ | Build Quarkus (`deploy-backend.sh`) |
 | [Node.js](https://nodejs.org/) | **20 LTS** + npm | Build SPAs → S3 (`deploy-frontends.sh`) |
-| [Python](https://www.python.org/downloads/) + **pip** | **3.12** | Empaquetado Lambdas ML (`build_lambda_dists.sh`; en macOS/Windows usar Docker con imagen SAM Python 3.12) |
+| [Python](https://www.python.org/downloads/) + **pip** | **3.12** | Opcional: solo con `LAMBDA_BUILD_NATIVE=1` (sin Docker; no recomendado) |
 
 Providers Terraform: **hashicorp/aws** (≥ 5.71.0), **hashicorp/archive** (≥ 2.0).
 
@@ -51,7 +51,7 @@ Providers Terraform: **hashicorp/aws** (≥ 5.71.0), **hashicorp/archive** (≥ 
 | `terraform/scripts/deploy.sh` | `terraform`, `aws`, `bash` |
 | `terraform/scripts/deploy-backend.sh` | `terraform`, `docker`, `mvn`, `aws` |
 | `terraform/scripts/deploy-frontends.sh` | `terraform`, `npm`, `aws` |
-| `ml-training/scripts/build_lambda_dists.sh` | `pip`, `bash` |
+| `ml-training/scripts/build_lambda_dists.sh` | `docker`, `bash` |
 
 ## Scripts (`terraform/scripts/`)
 
@@ -62,6 +62,22 @@ Providers Terraform: **hashicorp/aws** (≥ 5.71.0), **hashicorp/archive** (≥ 
 | `deploy-frontends.sh` | Build Vite + sync S3                                            |
 
 El empaquetado de Lambdas ocurre en `ml-training/scripts/build_lambda_dists.sh` (lo invoca `deploy.sh`).
+
+### Empaquetado de Lambdas ML
+
+`build_lambda_dists.sh` **siempre usa Docker** (imagen `public.ecr.aws/sam/build-python3.12`) para generar el zip con `psycopg2` compatible con Lambda. Así el comando es el mismo en Linux, macOS y Windows (WSL):
+
+```bash
+bash ml-training/scripts/build_lambda_dists.sh
+```
+
+Requisito: **Docker** instalado y en ejecución. Tras un rebuild, volvé a desplegar (`terraform apply` o `deploy.sh`).
+
+Sin Docker (solo desarrollo / CI especial): `LAMBDA_BUILD_NATIVE=1 bash ml-training/scripts/build_lambda_dists.sh` — en macOS ARM puede fallar o romper la Lambda en AWS (`No module named 'psycopg2._psycopg'`).
+
+**GitHub Actions:** los runners traen Docker; el workflow no necesita pasos distintos por SO.
+
+Más detalle: `ml-training/README.md`.
 
 ## Instrucciones de Ejecución
 
