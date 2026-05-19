@@ -68,12 +68,12 @@ El empaquetado de Lambdas ocurre en `ml-training/scripts/build_lambda_dists.sh` 
 `build_lambda_dists.sh` **siempre usa Docker** (imagen `public.ecr.aws/sam/build-python3.12`) para generar el zip con `psycopg2` compatible con Lambda. Así el comando es el mismo en Linux, macOS y Windows (WSL):
 
 ```bash
-bash ml-training/scripts/build_lambda_dists.sh
+docker run --rm -v "$(pwd)/ml-training:/opt/ml" -w /opt/ml public.ecr.aws/sam/build-python3.12 bash scripts/build_lambda_dists.sh
 ```
 
 Requisito: **Docker** instalado y en ejecución. Tras un rebuild, volvé a desplegar (`terraform apply` o `deploy.sh`).
 
-Sin Docker (solo desarrollo / CI especial): `LAMBDA_BUILD_NATIVE=1 bash ml-training/scripts/build_lambda_dists.sh` — en macOS ARM puede fallar o romper la Lambda en AWS (`No module named 'psycopg2._psycopg'`).
+Sin Docker (solo desarrollo / CI especial): `LAMBDA_BUILD_NATIVE=1 docker run --rm -v "$(pwd)/ml-training:/opt/ml" -w /opt/ml public.ecr.aws/sam/build-python3.12 bash scripts/build_lambda_dists.sh` — en macOS ARM puede fallar o romper la Lambda en AWS (`No module named 'psycopg2._psycopg'`).
 
 **GitHub Actions:** los runners traen Docker; el workflow no necesita pasos distintos por SO.
 
@@ -96,7 +96,7 @@ Para CI, copiar `TF_STATE_BUCKET` y `TF_STATE_DYNAMODB_TABLE` a los secrets de G
 ### Paso a paso
 
 ```bash
-bash ml-training/scripts/build_lambda_dists.sh
+docker run --rm -v "$(pwd)/ml-training:/opt/ml" -w /opt/ml public.ecr.aws/sam/build-python3.12 bash scripts/build_lambda_dists.sh
 bash terraform/scripts/terraform-init-remote.sh   # omitir si backend.hcl ya existe
 cd terraform && terraform apply -var-file=terraform.tfvars
 bash terraform/scripts/deploy-backend.sh
