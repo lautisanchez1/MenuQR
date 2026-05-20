@@ -4,5 +4,6 @@ public enum EventType {
     MENU_VIEW,
     ITEM_VIEW,
     SECTION_VIEW,
-    FILTER_USED
+    FILTER_USED,
+    ORDER_ITEM
 }
