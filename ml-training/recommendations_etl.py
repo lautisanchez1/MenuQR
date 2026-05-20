@@ -179,7 +179,7 @@ def default_source_day_utc() -> str:
     return yesterday.strftime("%Y-%m-%d")
 
 
-def query_item_views_for_day(tenant_id: str, date_str: str) -> dict[str, int]:
+def query_order_items_for_day(tenant_id: str, date_str: str) -> dict[str, int]:
     pk = f"TENANT#{tenant_id}"
     start_sk = f"EVENT#{date_str}T00:00:00.000Z"
     end_sk = f"EVENT#{date_str}T23:59:59.999Z"
@@ -198,11 +198,19 @@ def query_item_views_for_day(tenant_id: str, date_str: str) -> dict[str, int]:
             },
         ):
             for item in page.get("Items", []):
-                if item.get("eventType", {}).get("S") != "ITEM_VIEW":
+                if item.get("eventType", {}).get("S") != "ORDER_ITEM":
                     continue
                 iid = item.get("itemId", {}).get("S")
                 if iid:
-                    counts[iid] += 1
+                    qty = 1
+                    meta = item.get("metadata", {}).get("M", {})
+                    qty_val = meta.get("quantity", {}).get("S")
+                    if qty_val:
+                        try:
+                            qty = int(qty_val)
+                        except ValueError:
+                            qty = 1
+                    counts[iid] += qty
     except ClientError as e:
         err = e.response.get("Error", {})
         code = err.get("Code", "")
@@ -244,7 +252,7 @@ def encode_mrec_binary(artifact: dict[str, Any]) -> bytes:
 
 
 def build_artifact_for_tenant(tenant_id: str, date_str: str) -> dict[str, Any]:
-    counts = query_item_views_for_day(tenant_id, date_str)
+    counts = query_order_items_for_day(tenant_id, date_str)
     X = np.array([[0.0, float(sum(counts.values()) or 0)]])
     y = np.array([0])
     dummy = DummyClassifier(strategy="most_frequent")
