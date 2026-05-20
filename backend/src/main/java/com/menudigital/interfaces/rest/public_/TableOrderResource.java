@@ -1,5 +1,8 @@
 package com.menudigital.interfaces.rest.public_;
 
+import com.menudigital.domain.analytics.AnalyticsRepository;
+import com.menudigital.domain.analytics.InteractionEvent;
+import com.menudigital.domain.analytics.EventType;
 import com.menudigital.application.order.OrderEventBroadcaster;
 import com.menudigital.domain.menu.Menu;
 import com.menudigital.domain.menu.MenuItem;
