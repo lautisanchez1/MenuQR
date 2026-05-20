@@ -114,7 +114,7 @@ public class GetMenuAnalyticsUseCase {
             LocalDate date = event.timestamp().atZone(ZoneId.systemDefault()).toLocalDate();
             if (event.eventType() == EventType.MENU_VIEW) {
                 menuViewsByDate.merge(date, 1L, Long::sum);
-            } else if (event.eventType() == EventType.ITEM_VIEW) {
+            } else if (event.eventType() == EventType.ORDER_ITEM) {
                 itemViewsByDate.merge(date, 1L, Long::sum);
             }
         }
@@ -199,7 +199,7 @@ public class GetMenuAnalyticsUseCase {
             Instant now
     ) {
         Map<String, Long> itemViewCounts = events.stream()
-            .filter(e -> e.eventType() == EventType.ITEM_VIEW)
+            .filter(e -> e.eventType() == EventType.ORDER_ITEM)
             .filter(e -> e.itemId() != null && !e.itemId().isBlank())
             .collect(Collectors.groupingBy(InteractionEvent::itemId, Collectors.counting()));
         
@@ -226,13 +226,13 @@ public class GetMenuAnalyticsUseCase {
         Instant fourteenDaysAgo = now.minus(Duration.ofDays(14));
         
         Map<String, Long> last7dCounts = events.stream()
-            .filter(e -> e.eventType() == EventType.ITEM_VIEW)
+            .filter(e -> e.eventType() == EventType.ORDER_ITEM)
             .filter(e -> e.itemId() != null)
             .filter(e -> e.timestamp().isAfter(sevenDaysAgo))
             .collect(Collectors.groupingBy(InteractionEvent::itemId, Collectors.counting()));
         
         Map<String, Long> prior7dCounts = events.stream()
-            .filter(e -> e.eventType() == EventType.ITEM_VIEW)
+            .filter(e -> e.eventType() == EventType.ORDER_ITEM)
             .filter(e -> e.itemId() != null)
             .filter(e -> e.timestamp().isAfter(fourteenDaysAgo) && e.timestamp().isBefore(sevenDaysAgo))
             .collect(Collectors.groupingBy(InteractionEvent::itemId, Collectors.counting()));
