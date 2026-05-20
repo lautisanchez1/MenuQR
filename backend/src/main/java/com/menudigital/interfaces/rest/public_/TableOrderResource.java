@@ -63,6 +63,9 @@ public class TableOrderResource {
 
     @Inject
     MenuImageUrls menuImageUrls;
+
+    @Inject
+    AnalyticsRepository analyticsRepository;
     
     @GET
     @Path("/{qrToken}")
@@ -394,6 +397,20 @@ public class TableOrderResource {
                         order.setNotes(request.notes());
                     }
                     order.submit();
+                    for (OrderItem item : order.getItems()) {
+                        InteractionEvent event = InteractionEvent.create(
+                            table.getTenantId().toString(),
+                            EventType.ORDER_ITEM,
+                            item.getMenuItemId().toString(),
+                            null,
+                            session.getId().toString(),
+                            java.util.Map.of(
+                                "quantity", String.valueOf(item.getQuantity()),
+                                "orderNumber", String.valueOf(orderNumber)
+                            )
+                        );
+                        analyticsRepository.save(event);
+                    }
                     orderRepository.update(order);
                     
                     return Response.ok(toOrderResponse(order)).build();
